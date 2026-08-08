@@ -10,15 +10,88 @@ from flask import (
     Flask, render_template, request, redirect, url_for, session,
     send_from_directory, abort, flash, jsonify
 )
-from werkzeug.utils import secure_filename# ============================================================
+from werkzeug.utils import secure_filename
+
+# ============================================================
 # CONFIGURATION - yahan aap apni settings badal sakte hain
 # ============================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Robust path finding: files kabhi bhi kisi bhi nesting mein ho sakti hain.
+# Ye helper RECURSIVELY templates/ folder dhoondta hai (chahe wo kahi bhi ho).
+def _deep_search_for_template_dir(start):
+    """Start ke neeche recursively 'templates' folder dhoondo jisme index.html hai."""
+    import sys
+    found = []
+    stack = [start]
+    visited = set()
+    max_scan = 20000
+    count = 0
+    while stack and count < max_scan:
+        cur = stack.pop()
+        count += 1
+        if cur in visited:
+            continue
+        visited.add(cur)
+        try:
+            entries = os.listdir(cur)
+        except OSError:
+            continue
+        for name in entries:
+            full = os.path.join(cur, name)
+            try:
+                if os.path.isdir(full):
+                    if name == "templates" and os.path.isfile(os.path.join(full, "index.html")):
+                        found.append(full)
+                    else:
+                        # skip venv/node_modules/.venv to avoid huge scans
+                        if name in (".venv", "venv", "node_modules", ".git", "__pycache__", "site-packages"):
+                            continue
+                        stack.append(full)
+            except OSError:
+                continue
+    if found:
+        # sabse chhota path (root ke sabse paas) choose karo
+        found.sort(key=lambda p: len(p))
+        return found[0]
+    return None
+
+
+def _find_project_root():
+    here = os.path.dirname(os.path.abspath(__file__))
+    t = _deep_search_for_template_dir(here)
+    if t:
+        return os.path.dirname(t)  # templates ka parent = project root
+    return here
+
+
+PROJECT_ROOT = _find_project_root()
+BASE_DIR = PROJECT_ROOT
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 PDF_FOLDER = os.path.join(UPLOAD_FOLDER, "pdfs")
 HTML_FOLDER = os.path.join(UPLOAD_FOLDER, "html")
 UPI_FOLDER = os.path.join(UPLOAD_FOLDER, "upi")
 DB_PATH = os.path.join(BASE_DIR, "upsc.db")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# Agar templates kisi aur jagah mila ho, wahan bhi db/static dhoondo
+if not os.path.isdir(TEMPLATES_DIR):
+    t = _deep_search_for_template_dir(os.path.dirname(os.path.abspath(__file__)))
+    if t:
+        TEMPLATES_DIR = t
+        candidate_static = os.path.join(os.path.dirname(t), "static")
+        if os.path.isdir(candidate_static):
+            STATIC_DIR = candidate_static
+        candidate_uploads = os.path.join(os.path.dirname(t), "uploads")
+        if os.path.isdir(candidate_uploads):
+            UPLOAD_FOLDER = candidate_uploads
+        candidate_db = os.path.join(os.path.dirname(t), "upsc.db")
+        if os.path.isfile(candidate_db):
+            DB_PATH = candidate_db
+
+print(f"[startup] PROJECT_ROOT = {PROJECT_ROOT}")
+print(f"[startup] TEMPLATES_DIR = {TEMPLATES_DIR} (exists={os.path.isdir(TEMPLATES_DIR)})")
+print(f"[startup] DB_PATH = {DB_PATH} (exists={os.path.isfile(DB_PATH)})")
+print(f"[startup] UPLOAD_FOLDER = {UPLOAD_FOLDER} (exists={os.path.isdir(UPLOAD_FOLDER)})")
 
 # ---- Aapki settings (change kar sakte hain) ----
 SITE_NAME = "UPSC Notes Store"
@@ -61,7 +134,9 @@ DEFAULT_SUBJECTS = [
 # ============================================================
 # APP SETUP
 # ============================================================
-app = Flask(__name__)
+app = Flask(__name__,
+            template_folder=TEMPLATES_DIR,
+            static_folder=STATIC_DIR)
 app.secret_key = SESSION_SECRET
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
