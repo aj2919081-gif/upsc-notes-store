@@ -12,6 +12,8 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
+from _embedded_templates import TEMPLATES as EMBEDDED_TEMPLATES
+
 # ============================================================
 # CONFIGURATION - yahan aap apni settings badal sakte hain
 # ============================================================
@@ -134,9 +136,20 @@ DEFAULT_SUBJECTS = [
 # ============================================================
 # APP SETUP
 # ============================================================
+# Custom Jinja loader: sab templates embedded python module se milti hain,
+# isliye alag templates/ folder ki zaroorat nahi (deploy 100% bulletproof).
+from jinja2 import BaseLoader, TemplateNotFound as JinjaTemplateNotFound
+
+class EmbeddedTemplateLoader(BaseLoader):
+    def get_source(self, environment, template):
+        if template in EMBEDDED_TEMPLATES:
+            return EMBEDDED_TEMPLATES[template], "<embedded>", lambda: False
+        raise JinjaTemplateNotFound(template)
+
 app = Flask(__name__,
             template_folder=TEMPLATES_DIR,
             static_folder=STATIC_DIR)
+app.jinja_loader = EmbeddedTemplateLoader()
 app.secret_key = SESSION_SECRET
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
