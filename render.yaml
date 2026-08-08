@@ -1,0 +1,26 @@
+# Render.com Blueprint — isse Render par ek-click deploy hoga
+# (Render mein "New -> Blueprint" chunein aur ye repo select karein)
+
+services:
+  - type: web
+    name: upsc-notes-store
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    plan: free
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      # ⚠️ APNA PASSWORD YAHAN BADLEIN (ya Render Dashboard se set karein)
+      - key: ADMIN_PASSWORD
+        value: aj521900
+      - key: UPI_ID
+        value: 9569431430@ybl
+      - key: SELLER_PHONE
+        value: +91-9569431430
+      - key: SELLER_WHATSAPP
+        value: +919569431430
+      - key: SELLER_EMAIL
+        value: as5093220@gmail.com

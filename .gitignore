@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Uploads: files jo runtime par admin add karega (initial data ko repo mein rakhna hai,
+# isliye uploads/ aur upsc.db commit karein — niche unhe allow kiya gaya hai)
+uploads/upi/screenshot_backup.png
+
+# OS
+.DS_Store
+Thumbs.db
