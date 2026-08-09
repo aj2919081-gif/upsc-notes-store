@@ -243,6 +243,31 @@ def get_ext(filename):
     return filename.rsplit(".", 1)[1].lower() if "." in filename else ""
 
 
+def clean_note_html(content):
+    """Preview ke liye note HTML ko clean karo:
+       - external font @import / @font-face hatao (network ke bina bhi render ho)
+       - system Devanagari font fallback lagao taaki Hindi text hamesha dikhe
+       - koi 'file://' path hatao"""
+    import re
+    # remove @import statements (external fonts/CSS)
+    content = re.sub(r"@import[^;]*;", "", content)
+    # remove @font-face blocks
+    content = re.sub(r"@font-face\s*\{[^}]*\}", "", content, flags=re.S)
+    # remove any file:// references
+    content = content.replace("file://", "")
+    # Devanagari-friendly font fallback add karo body/html par (agar set nahi hai)
+    font_stack = ("'Noto Sans Devanagari', 'Mangal', 'Nirmala UI', "
+                  "'Segoe UI', 'Arial Unicode MS', sans-serif")
+    # add global font-family rule if there's a <style>
+    if "<style" in content.lower():
+        content = content.replace(
+            "</style>",
+            "body{font-family:%s} </style>" % font_stack,
+            1,
+        )
+    return content
+
+
 def login_required(f):
     from functools import wraps
 
@@ -381,7 +406,8 @@ def note_detail(note_id):
 
 @app.route("/note/<int:note_id>/view")
 def note_view(note_id):
-    """Open the actual PDF/HTML note (inline). Content DB se aata hai (file depend nahi)."""
+    """Preview — sab ke liye khula (customer note ka preview dekh sakta hai).
+    Download alag se locked hai. External font imports/removed taaki preview clean ho."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
@@ -390,7 +416,7 @@ def note_view(note_id):
     note = dict(row)
     # 1) DB content (HTML) se serve karo — most reliable
     if note["file_type"] == "html" and note["content"]:
-        return Response(note["content"], mimetype="text/html")
+        return Response(clean_note_html(note["content"]), mimetype="text/html")
     # 2) fallback: file se
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
@@ -402,6 +428,9 @@ def note_view(note_id):
 
 @app.route("/download/<int:note_id>")
 def download_note(note_id):
+    """Download route bhi LOCKED — sirf admin/paid customer hi download kar sakta hai."""
+    if not session.get("is_admin"):
+        return redirect(url_for("buy_note", note_id=note_id))
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
@@ -412,7 +441,7 @@ def download_note(note_id):
     if note["file_type"] == "html" and note["content"]:
         dl_name = note["original_name"] or f"note-{note_id}.html"
         return Response(
-            note["content"],
+            clean_note_html(note["content"]),
             mimetype="text/html",
             headers={"Content-Disposition": f'attachment; filename="{dl_name}"'},
         )
