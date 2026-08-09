@@ -310,32 +310,40 @@ TEMPLATES = {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=2-green">
+  <meta name="description" content="{{ SITE_TAGLINE }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8-premium">
+  <!-- Critical CSS: CSS load hone se pehle bhi layout sahi rahe (no flicker) -->
+  <style>
+    html, body { margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', -apple-system, 'Georgia', 'Roboto', system-ui, sans-serif; background: #faf7f1; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    .hero { background: linear-gradient(135deg, #0c5c3a, #073c25, #052a1a); padding: 60px 0 70px; text-align: center; }
+    .hero h1 { margin: 22px 0 14px; font-size: 44px; line-height: 1.1; }
+    .navbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 14px 0; }
+  </style>
 </head>
 <body>
 
-  <!-- Top bar -->
   <div class="topbar">
     <div class="container">
-      <span>📚 UPSC | BPSC | State PCS — Premium Notes</span>
+      <span>✦ UPSC | BPSC | State PCS — Premium Notes</span>
       <span>{% if is_admin %}<a href="{{ url_for('admin_dashboard') }}">🧑‍💼 Admin Panel</a>{% else %}<a href="{{ url_for('admin_login') }}">Admin Login</a>{% endif %}</span>
     </div>
   </div>
 
-  <!-- Header -->
   <header class="site">
     <div class="container navbar">
       <a href="{{ url_for('index') }}" class="brand">
         <div class="brand-logo">U</div>
         <div>
-          <div class="brand-name">{{ SITE_NAME }}</div>
+          <div class="brand-name">UPSC<span>Notes</span></div>
           <div class="brand-tag">{{ SITE_TAGLINE }}</div>
         </div>
       </a>
 
       <form class="searchbar" action="{{ url_for('browse') }}" method="GET">
-        <input type="text" name="q" placeholder="Notes dhoondein... (Geography, Polity...)"
-               value="{{ request.args.get('q','') }}">
+        <input type="text" name="q" placeholder="Search premium notes..." value="{{ request.args.get('q','') }}">
         <button type="submit">🔍</button>
       </form>
 
@@ -350,12 +358,11 @@ TEMPLATES = {
         {% else %}
           <a class="admin-btn" href="{{ url_for('admin_login') }}">Admin</a>
         {% endif %}
-        <button class="theme-toggle" id="themeToggle" title="Dark/Light mode">🌙</button>
+        <button class="theme-toggle" id="themeToggle" title="Dark/Light">🌙</button>
       </nav>
     </div>
   </header>
 
-  <!-- Flash messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="flashes">
@@ -368,7 +375,6 @@ TEMPLATES = {
 
   {% block content %}{% endblock %}
 
-  <!-- Dark mode toggle script -->
   <script>
     (function() {
       var btn = document.getElementById('themeToggle');
@@ -378,27 +384,22 @@ TEMPLATES = {
         document.body.classList.toggle('dark-mode', t === 'dark');
         if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
       }
-      if (saved) {
-        apply(saved);
-      }
-      if (btn) {
-        btn.addEventListener('click', function() {
-          var isDark = document.body.classList.contains('dark-mode');
-          var next = isDark ? 'light' : 'dark';
-          try { localStorage.setItem('upsc_theme', next); } catch(e) {}
-          apply(next);
-        });
-      }
+      if (saved) apply(saved);
+      if (btn) btn.addEventListener('click', function() {
+        var isDark = document.body.classList.contains('dark-mode');
+        var next = isDark ? 'light' : 'dark';
+        try { localStorage.setItem('upsc_theme', next); } catch(e) {}
+        apply(next);
+      });
     })();
   </script>
 
-  <!-- Footer -->
   <footer class="site">
     <div class="container">
       <div class="footer-grid">
         <div>
           <h4>{{ SITE_NAME }}</h4>
-          <p style="font-size:14px">UPSC &amp; State PCS exam ki taiyari ke liye curated premium notes. Ek jagah, sab subjects.</p>
+          <p style="font-size:14px;">UPSC &amp; State PCS exam ki taiyari ke liye curated premium notes.</p>
         </div>
         <div>
           <h4>Quick Links</h4>
@@ -408,7 +409,7 @@ TEMPLATES = {
           <a href="{{ url_for('contact') }}">Contact</a>
         </div>
         <div>
-          <h4>Popular Subjects</h4>
+          <h4>Subjects</h4>
           {% for s in all_subjects[:5] %}
             <a href="{{ url_for('subject_page', slug=s.slug) }}">{{ s.name }}</a>
           {% endfor %}
@@ -540,19 +541,24 @@ TEMPLATES = {
 {% endblock %}
 """,
     'index.html': """{% extends "base.html" %}
-{% block title %}Home — {{ SITE_NAME }}{% endblock %}
+{% block title %}{{ SITE_NAME }} — Premium UPSC Notes{% endblock %}
 
 {% block content %}
 
 <!-- Hero -->
 <section class="hero">
   <div class="container">
-    <h1>UPSC Notes Store 🇮🇳</h1>
-    <p>UPSC Prelims &amp; Mains ki taiyari ke liye expert-curated premium notes.
-       Geography, Polity, Economics, Science &amp; Tech, History aur aur bhi bahut kuch — sab ek jagah.</p>
+    <span class="hero-badge">✦ Premium Edition · UPSC · BPSC · State PCS ✦</span>
+    <h1>Premium UPSC Notes<br><span class="grad-text">One Destination, Every Subject</span></h1>
+    <p>Expert-curated cheatsheets crafted for Prelims &amp; Mains — Geography, Polity, History, Economics, Science &amp; Tech aur bahut kuch.</p>
     <div class="cta">
-      <a href="{{ url_for('browse') }}" class="btn btn-light">📖 Saare Notes Dekhein</a>
-      <a href="#subjects" class="btn btn-outline">🗂️ Subjects Explore Karein</a>
+      <a href="{{ url_for('browse') }}" class="btn btn-gold">✨ Explore Premium Notes</a>
+      <a href="#subjects" class="btn btn-line">🗂️ Browse Subjects</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num">{{ total_notes }}</div><div class="lbl">Notes</div></div>
+      <div class="hero-stat"><div class="num">{{ bundle_count }}</div><div class="lbl">Bundles</div></div>
+      <div class="hero-stat"><div class="num">{{ subject_count }}</div><div class="lbl">Subjects</div></div>
     </div>
   </div>
 </section>
@@ -561,24 +567,34 @@ TEMPLATES = {
 
   <!-- Subjects -->
   <div class="section-title" id="subjects">
-    <h2>🗂️ Subjects</h2>
-    <p>Apne subject pe click karke notes browse karein.</p>
+    <div class="tag">Explore</div>
+    <h2>Browse by <em>Subject</em></h2>
+    <p>Apne subject par click karke notes dekhein.</p>
   </div>
   <div class="subject-grid">
     {% for s in subject_counts %}
       <a class="subject-card" href="{{ url_for('subject_page', slug=s.slug) }}">
-        <div class="emoji">{{ subject_emoji(s.slug) }}</div>
-        <div class="name">{{ s.name }}</div>
-        <div class="count">{{ s.hindi }} · {{ s.cnt }} notes</div>
+        <span class="emoji">{{ subject_emoji(s.slug) }}</span>
+        <span class="name">{{ s.name }}</span>
+        <span class="count">{{ s.hindi }} · {{ s.cnt }} notes</span>
       </a>
     {% endfor %}
+  </div>
+
+  <!-- Features -->
+  <div class="feature-grid">
+    <div class="feature-card"><div class="ico">📄</div><h3>PDF & HTML</h3><p>Easy to read &amp; print</p></div>
+    <div class="feature-card"><div class="ico">🎯</div><h3>Exam-Focused</h3><p>Prelims + Mains</p></div>
+    <div class="feature-card"><div class="ico">💳</div><h3>Secure UPI</h3><p>QR scan karke</p></div>
+    <div class="feature-card"><div class="ico">⚡</div><h3>Instant Access</h3><p>Turant delivery</p></div>
   </div>
 
   <!-- Featured -->
   {% if featured %}
     <div class="section-title">
-      <h2>⭐ Featured Notes</h2>
-      <p>Hamari sabse popular notes.</p>
+      <div class="tag">Best Sellers</div>
+      <h2>Featured <em>Bundles</em></h2>
+      <p>Hamari sabse popular notes — complete bundles.</p>
     </div>
     <div class="note-grid">
       {% for n in featured %}
@@ -589,7 +605,8 @@ TEMPLATES = {
 
   <!-- Recent -->
   <div class="section-title">
-    <h2>🆕 Recently Added</h2>
+    <div class="tag">Fresh</div>
+    <h2>Recently <em>Added</em></h2>
     <p>Sabse nayi uploads.</p>
   </div>
   <div class="note-grid">
@@ -598,13 +615,20 @@ TEMPLATES = {
     {% endfor %}
   </div>
 
+  <!-- CTA -->
+  <div class="cta-banner">
+    <h2>Unlock Your Full Potential</h2>
+    <p>Complete bundles mein saare notes ek saath — better price, better preparation.</p>
+    <a href="{{ url_for('browse') }}" class="btn btn-gold">🛒 Start Learning Now</a>
+  </div>
+
   {% if not recent %}
     <div class="card" style="text-align:center; padding:40px;">
       <div style="font-size:50px;">📭</div>
       <h3>Abhi koi notes nahi hain</h3>
-      <p>Admin abhi notes upload karega. Thodi der baad check karein.</p>
+      <p>Admin abhi notes upload karega.</p>
       {% if is_admin %}
-        <a href="{{ url_for('admin_upload') }}" class="btn btn-primary">+ Pehla Note Upload Karein</a>
+        <a href="{{ url_for('admin_upload') }}" class="btn btn-green">+ Pehla Note Upload Karein</a>
       {% endif %}
     </div>
   {% endif %}

@@ -8,11 +8,12 @@ from datetime import datetime
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
-    send_from_directory, abort, flash, jsonify
+    send_from_directory, abort, flash, jsonify, Response
 )
 from werkzeug.utils import secure_filename
 
 from _embedded_templates import TEMPLATES as EMBEDDED_TEMPLATES
+from _qr_embed import UPI_QR_BASE64
 
 # ============================================================
 # CONFIGURATION - yahan aap apni settings badal sakte hain
@@ -152,6 +153,19 @@ app = Flask(__name__,
 app.jinja_loader = EmbeddedTemplateLoader()
 app.secret_key = SESSION_SECRET
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+
+# Reload fix: ensure fresh content on every load (no stale cache)
+@app.after_request
+def add_no_cache_headers(resp):
+    if request.path.startswith("/static/"):
+        # static files: short cache (CSS versioning handles busting)
+        resp.headers["Cache-Control"] = "public, max-age=300"
+    else:
+        # HTML pages: always fresh
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
 
 for folder in (PDF_FOLDER, HTML_FOLDER, UPI_FOLDER):
     os.makedirs(folder, exist_ok=True)
@@ -296,12 +310,17 @@ def index():
            FROM subjects s LEFT JOIN notes n ON n.subject_slug = s.slug
            GROUP BY s.id ORDER BY s.id"""
     ).fetchall()
+    total_notes = conn.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
+    bundle_count = conn.execute("SELECT COUNT(*) AS c FROM notes WHERE featured=1").fetchone()["c"]
     conn.close()
     return render_template(
         "index.html",
         featured=[dict(n) for n in featured],
         recent=[dict(n) for n in recent],
         subject_counts=[dict(r) for r in subject_counts],
+        total_notes=total_notes,
+        bundle_count=bundle_count,
+        subject_count=len(subject_counts),
     )
 
 
@@ -362,21 +381,23 @@ def note_detail(note_id):
 
 @app.route("/note/<int:note_id>/view")
 def note_view(note_id):
-    """Open the actual PDF/HTML note (download for pdf, inline for html)."""
+    """Open the actual PDF/HTML note (inline). Content DB se aata hai (file depend nahi)."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
     if not row:
         abort(404)
     note = dict(row)
+    # 1) DB content (HTML) se serve karo — most reliable
+    if note["file_type"] == "html" and note["content"]:
+        return Response(note["content"], mimetype="text/html")
+    # 2) fallback: file se
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
         abort(404)
     folder = os.path.dirname(full)
     name = os.path.basename(full)
-    if note["file_type"] == "pdf":
-        return send_from_directory(folder, name, as_attachment=False)
-    return send_from_directory(folder, name)
+    return send_from_directory(folder, name, as_attachment=False)
 
 
 @app.route("/download/<int:note_id>")
@@ -387,6 +408,14 @@ def download_note(note_id):
     if not row:
         abort(404)
     note = dict(row)
+    # DB content se download (html) — reliable
+    if note["file_type"] == "html" and note["content"]:
+        dl_name = note["original_name"] or f"note-{note_id}.html"
+        return Response(
+            note["content"],
+            mimetype="text/html",
+            headers={"Content-Disposition": f'attachment; filename="{dl_name}"'},
+        )
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
         abort(404)
@@ -405,10 +434,8 @@ def buy_note(note_id):
     if not row:
         abort(404)
     note = dict(row)
-    qr = None
-    qr_path = os.path.join(UPI_FOLDER, UPI_QR_FILENAME)
-    if os.path.exists(qr_path):
-        qr = url_for("upi_qr", filename=UPI_QR_FILENAME)
+    # QR: embedded base64 se data-URI banate hain (file ki zaroorat nahi)
+    qr = "data:image/png;base64," + UPI_QR_BASE64
     return render_template(
         "buy.html",
         note=note,
