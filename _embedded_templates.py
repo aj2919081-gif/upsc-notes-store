@@ -38,7 +38,9 @@ TEMPLATES = {
       {% if n.original_price and n.original_price > n.price %}<span class="orig-price">₹{{ '%g' % n.original_price }}</span>{% endif %}
     </div>
     <div class="note-actions">
-      <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+      {% if n.id in demo_preview_ids %}
+        <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+      {% endif %}
       <a href="{{ url_for('buy_note', note_id=n.id) }}" class="btn btn-primary">🛒 Buy</a>
     </div>
   </div>
@@ -556,6 +558,70 @@ header.site {
   width: 300px; height: 4px; border-radius: 4px; background: var(--grad-gold);
 }
 .cta-banner h2 { font-size: 32px; margin: 0 0 10px; position: relative; text-shadow: 0 0 20px rgba(246,210,80,.5), 0 0 50px rgba(246,183,60,.3); }
+
+/* ===== UPSC OPTIONAL SECTION ===== */
+.optional-section { margin: 40px 0; }
+.optional-toggle {
+  width: 100%; text-align: center; cursor: pointer; border: none; outline: none;
+  background: var(--grad-emerald); color: #fff; border-radius: var(--radius);
+  padding: 30px 20px; font-size: 22px; font-weight: 800; letter-spacing: .5px;
+  box-shadow: 0 0 26px rgba(12,92,58,.35), 0 8px 30px rgba(5,42,26,.2);
+  transition: .25s; position: relative; overflow: hidden; font-family: inherit;
+}
+.optional-toggle::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(246,210,80,.28), transparent 55%);
+}
+.optional-toggle:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(246,210,80,.4), 0 0 80px rgba(12,92,58,.3); }
+.optional-toggle .opt-emoji { font-size: 34px; display: block; margin-bottom: 8px; position: relative; }
+.optional-toggle span { position: relative; }
+.optional-toggle .opt-hint { display: block; font-size: 13px; font-weight: 500; opacity: .85; margin-top: 8px; position: relative; }
+.optional-panel {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+  margin-top: 16px; padding: 26px; box-shadow: var(--shadow); display: none;
+}
+.optional-panel.open { display: block; animation: optFade .35s ease; }
+@keyframes optFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.optional-panel h3 { margin: 0 0 16px; font-size: 20px; }
+.optional-panel h3 em { font-style: normal; color: var(--emerald); text-shadow: 0 0 14px rgba(12,92,58,.3); }
+.optional-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.optional-card {
+  background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 22px 14px; text-align: center; transition: .2s; display: block;
+  box-shadow: var(--shadow-sm);
+}
+.optional-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 0 20px rgba(12,92,58,.25); }
+.optional-card .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
+.optional-card .name { font-weight: 700; color: var(--ink); font-size: 15px; }
+.optional-card .tag { font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.optional-card.featured { border-color: var(--gold); box-shadow: 0 0 24px rgba(246,210,80,.35); background: linear-gradient(135deg,#fdf6e3,#fff); }
+
+/* ===== NEON QUOTE SECTION ===== */
+.quote-section { margin: 60px 0; text-align: center; }
+.quote-box {
+  background: var(--grad-emerald); border-radius: var(--radius); padding: 50px 36px;
+  position: relative; overflow: hidden; border: 1px solid rgba(201,162,39,.4);
+  box-shadow: 0 0 40px rgba(12,92,58,.4), 0 0 80px rgba(12,92,58,.2), var(--shadow-lg);
+}
+.quote-box::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(246,210,80,.25), transparent 55%);
+}
+.quote-mark {
+  font-size: 80px; line-height: 1; color: var(--gold-light); font-family: Georgia, serif;
+  text-shadow: 0 0 24px rgba(246,210,80,.7), 0 0 60px rgba(246,183,60,.4);
+}
+.quote-text {
+  font-size: 26px; font-weight: 700; color: #fff; max-width: 720px; margin: 14px auto 10px;
+  font-family: Georgia, 'Segoe UI', serif; font-style: italic; line-height: 1.5;
+  text-shadow: 0 0 18px rgba(255,255,255,.4), 0 0 40px rgba(246,210,80,.35);
+  transition: opacity .4s ease;
+}
+.quote-author {
+  font-size: 14px; color: var(--gold-light); letter-spacing: 2px; text-transform: uppercase; font-weight: 700;
+  text-shadow: 0 0 14px rgba(246,210,80,.6);
+  transition: opacity .4s ease;
+}
 .cta-banner p { opacity: .9; max-width: 540px; margin: 0 auto 26px; position: relative; font-weight: 300; }
 
 /* ===== Cards ===== */
@@ -712,7 +778,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       try { saved = localStorage.getItem('upsc_theme'); } catch(e) {}
       function apply(t) {
         document.body.classList.toggle('dark-mode', t === 'dark');
-        if (btn) btn.textContent = t === 'dark' ? '&#9728;&#65039;' : '&#127769;';
+        if (btn) btn.textContent = t === 'dark' ? '☀️' : '🌙';
       }
       if (saved) apply(saved);
       if (btn) btn.addEventListener('click', function() {
@@ -913,6 +979,54 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     {% endfor %}
   </div>
 
+  <!-- UPSC OPTIONAL -->
+  <div class="optional-section">
+    <button class="optional-toggle" id="optionalToggle" onclick="toggleOptional()">
+      <span class="opt-emoji">🎓</span>
+      <span>UPSC Optional Subjects</span>
+      <span class="opt-hint">👇 Click karke dekhein — sabse popular optional: Geography</span>
+    </button>
+    <div class="optional-panel" id="optionalPanel">
+      <h3>🎓 UPSC <em>Optional Subjects</em></h3>
+      <div class="optional-grid">
+        <a class="optional-card featured" href="{{ url_for('subject_page', slug='geography') }}">
+          <span class="emoji">🌍</span>
+          <span class="tag">⭐ Most Popular</span>
+          <span class="name">Geography</span>
+        </a>
+        <a class="optional-card" href="{{ url_for('subject_page', slug='history') }}">
+          <span class="emoji">🏺</span>
+          <span class="name">History</span>
+        </a>
+        <a class="optional-card" href="{{ url_for('subject_page', slug='polity') }}">
+          <span class="emoji">🏛️</span>
+          <span class="name">Polity</span>
+        </a>
+        <a class="optional-card" href="{{ url_for('subject_page', slug='economics') }}">
+          <span class="emoji">📈</span>
+          <span class="name">Economics</span>
+        </a>
+        <a class="optional-card" href="{{ url_for('subject_page', slug='science-tech') }}">
+          <span class="emoji">🔬</span>
+          <span class="name">Science & Tech</span>
+        </a>
+        <a class="optional-card" href="{{ url_for('subject_page', slug='art-culture') }}">
+          <span class="emoji">🎭</span>
+          <span class="name">Art & Culture</span>
+        </a>
+      </div>
+    </div>
+  </div>
+  <script>
+    function toggleOptional() {
+      var panel = document.getElementById('optionalPanel');
+      var btn = document.getElementById('optionalToggle');
+      panel.classList.toggle('open');
+      btn.querySelector('.opt-hint').textContent =
+        panel.classList.contains('open') ? '▲ Click karke band karein' : '👇 Click karke dekhein — sabse popular optional: Geography';
+    }
+  </script>
+
   <!-- Features -->
   <div class="feature-grid">
     <div class="feature-card"><div class="ico">📄</div><h3>PDF & HTML</h3><p>Easy to read &amp; print</p></div>
@@ -953,6 +1067,43 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     <p>Complete bundles mein saare notes ek saath — better price, better preparation.</p>
     <a href="{{ url_for('browse') }}" class="btn btn-gold">🛒 Start Learning Now</a>
   </div>
+
+  <!-- NEON QUOTE -->
+  <div class="quote-section">
+    <div class="quote-box">
+      <div class="quote-mark">"</div>
+      <div class="quote-text" id="quoteText">कठिन परिश्रम का कोई विकल्प नहीं है। अपनी मेहनत, समर्पण और सपनों पर विश्वास रखो — कामयाबी ज़रूर मिलेगी।</div>
+      <div class="quote-author" id="quoteAuthor">✨ UPSC Aspirants ✨</div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var quotes = [
+        { text: "कठिन परिश्रम का कोई विकल्प नहीं है। अपनी मेहनत, समर्पण और सपनों पर विश्वास रखो — कामयाबी ज़रूर मिलेगी।", author: "✨ UPSC Aspirants ✨" },
+        { text: "सपने वो नहीं जो सोने पर आते हैं, सपने वो हैं जो सोने नहीं देते।", author: "✨ Dr. A.P.J. Abdul Kalam ✨" },
+        { text: "सफलता कोई संयोग नहीं है, यह कठिन परिश्रम, दृढ़ इच्छाशक्ति और अटूट विश्वास का परिणाम है।", author: "✨ Aspirant's Mantra ✨" },
+        { text: "जो सपने देखते हैं और उन्हें पूरा करने के लिए ज़िंदगी दाँव पर लगाते हैं, उन्हीं की जीत होती है।", author: "✨ UPSC Journey ✨" },
+        { text: "हार मान लेना आसान है, लेकिन मंज़िल उन्हीं को मिलती है जो हर असफलता के बाद नए सिरे से शुरू करते हैं।", author: "✨ Never Give Up ✨" }
+      ];
+      var idx = 0;
+      function show() {
+        var t = document.getElementById('quoteText');
+        var a = document.getElementById('quoteAuthor');
+        if (t && a) {
+          t.style.opacity = 0;
+          a.style.opacity = 0;
+          setTimeout(function() {
+            t.textContent = quotes[idx].text;
+            a.textContent = quotes[idx].author;
+            t.style.opacity = 1;
+            a.style.opacity = 1;
+          }, 300);
+        }
+        idx = (idx + 1) % quotes.length;
+      }
+      setInterval(show, 6000);
+    })();
+  </script>
 
   {% if not recent %}
     <div class="card" style="text-align:center; padding:40px;">
@@ -1009,7 +1160,9 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); white-space:pre-line;">{{ note.description or 'Koi description nahi diya gaya.' }}</p>
 
       <div class="toolbar">
-        <a href="{{ url_for('note_view', note_id=note.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+        {% if note.id in demo_preview_ids %}
+          <a href="{{ url_for('note_view', note_id=note.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+        {% endif %}
         {% if is_admin %}
           <form method="post" action="{{ url_for('admin_delete', note_id=note.id) }}" onsubmit="return confirm('Kya aap ye note delete karna chahte hain?');">
             <button class="btn btn-danger" type="submit">🗑️ Delete</button>

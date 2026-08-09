@@ -287,6 +287,9 @@ SUBJECT_EMOJI = {
     "prelims": "🎯", "mains": "✍️", "other": "📚",
 }
 
+# Har subject ka EK preview note (demo) — sirf ye preview mein khulega, baaki locked
+DEMO_PREVIEW_IDS = {1, 3, 4, 6, 9, 106, 42}
+
 
 def subject_emoji(slug):
     return SUBJECT_EMOJI.get(slug, "📚")
@@ -315,6 +318,7 @@ def inject_globals():
         "now_year": lambda: datetime.now().year,
         "subject_emoji": subject_emoji,
         "subject_name": subject_name,
+        "demo_preview_ids": DEMO_PREVIEW_IDS,
     }
 
 
@@ -406,8 +410,13 @@ def note_detail(note_id):
 
 @app.route("/note/<int:note_id>/view")
 def note_view(note_id):
-    """Preview — sab ke liye khula (customer note ka preview dekh sakta hai).
+    """Preview — SIRF demo note(s) ke liye khula. Baaki sab Buy page par redirect.
+    Isse customer sirf FREE DEMO dekh sakta hai, baaki notes payment ke baad.
     Download alag se locked hai. External font imports/removed taaki preview clean ho."""
+    # Sirf har subject ka EK demo note preview ke liye allowed hai (DEMO_PREVIEW_IDS global),
+    # baaki sab Buy page par redirect.
+    if not session.get("is_admin") and note_id not in DEMO_PREVIEW_IDS:
+        return redirect(url_for("buy_note", note_id=note_id))
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
