@@ -534,14 +534,28 @@ def note_view(note_id):
 
 
 def bundle_preview_sample(content):
-    """Bundle HTML se sirf cover + pehla chapter (sample) extract karo."""
+    """Bundle HTML se sirf cover + pehla chapter (sample) extract karo.
+    TOC (badi plain list) ko NAHI dikhana — sirf cover + pehla section ka actual content."""
     import re
-    # cover section
-    cover_match = re.search(r'(<div class="bundle-cover">.*?</div>\s*</div>\s*<div class="bundle-toc">.*?</div>)', content, re.S)
-    cover = cover_match.group(1) if cover_match else ""
-    # pehla section
-    first_section = re.search(r'(<div style="page-break-before:always;" class="bundle-section">.*?</div>\s*</div>)', content, re.S)
-    sample = first_section.group(1) if first_section else ""
+    # 1) Cover section (bundle-cover) — bina TOC ke
+    cover = ""
+    m = re.search(r'<div class="bundle-cover">(.*?)(</div>\s*</div>|<div class="bundle-toc">)', content, re.S)
+    if m:
+        cover = '<div class="bundle-cover">' + m.group(1) + '</div></div>'
+
+    # 2) Pehla section — sabse pehla bundle-section, uske baad wale section tak
+    sample = ""
+    m1 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content)
+    if m1:
+        start = m1.start()
+        # agla section kahan start hota hai (uske pehle tak le lo)
+        m2 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content[start+10:])
+        if m2:
+            end = start + 10 + m2.start()
+        else:
+            end = len(content)
+        sample = content[start:end]
+
     notice = ('<div style="background:#fef3c7;border:1px solid #d97706;border-radius:10px;padding:14px 18px;'
               'margin:14px auto;max-width:820px;text-align:center;font-family:Arial,sans-serif;'
               'color:#7c2d12;font-size:14px;">'
