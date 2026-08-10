@@ -406,9 +406,18 @@ def index():
     featured = conn.execute(
         "SELECT * FROM notes WHERE featured=1 ORDER BY created_at DESC LIMIT 6"
     ).fetchall()
-    recent = conn.execute(
-        "SELECT * FROM notes ORDER BY created_at DESC LIMIT 9"
-    ).fetchall()
+    featured_ids = [r["id"] for r in featured]
+    # Recent mein wo notes NAHI jo featured mein already hain (duplicate hatao)
+    if featured_ids:
+        placeholders = ",".join("?" * len(featured_ids))
+        recent = conn.execute(
+            f"SELECT * FROM notes WHERE id NOT IN ({placeholders}) ORDER BY created_at DESC LIMIT 9",
+            featured_ids,
+        ).fetchall()
+    else:
+        recent = conn.execute(
+            "SELECT * FROM notes ORDER BY created_at DESC LIMIT 9"
+        ).fetchall()
     subject_counts = conn.execute(
         """SELECT s.slug, s.name, s.hindi, COUNT(n.id) AS cnt
            FROM subjects s LEFT JOIN notes n ON n.subject_slug = s.slug
@@ -534,26 +543,32 @@ def note_view(note_id):
 
 
 def bundle_preview_sample(content):
-    """Bundle HTML se sirf cover + pehla chapter (sample) extract karo.
-    TOC (badi plain list) ko NAHI dikhana — sirf cover + pehla section ka actual content."""
+    """Bundle HTML se cover + pehla chapter dikhao, SAB CSS include karke
+    (taaki chapter decorated dikhe, plain text nahi)."""
     import re
-    # 1) Cover section (bundle-cover) — bina TOC ke
+    # Sab <style> blocks extract karo (head + har chapter ke)
+    styles = re.findall(r'<style[^>]*>(.*?)</style>', content, re.S)
+    # clean each style: remove @import / @font-face file refs
+    cleaned_styles = []
+    for s in styles:
+        s = re.sub(r"@import[^;]+;", "", s)
+        s = re.sub(r"@font-face\s*\{[^}]*file:[^}]*\}", "", s, flags=re.S)
+        cleaned_styles.append(s)
+    all_css = "\n".join(cleaned_styles)
+
+    # Cover section (bundle-cover, bina TOC)
     cover = ""
     m = re.search(r'<div class="bundle-cover">(.*?)(</div>\s*</div>|<div class="bundle-toc">)', content, re.S)
     if m:
         cover = '<div class="bundle-cover">' + m.group(1) + '</div></div>'
 
-    # 2) Pehla section — sabse pehla bundle-section, uske baad wale section tak
+    # Pehla section (pehla bundle-section, agle section tak)
     sample = ""
     m1 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content)
     if m1:
         start = m1.start()
-        # agla section kahan start hota hai (uske pehle tak le lo)
         m2 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content[start+10:])
-        if m2:
-            end = start + 10 + m2.start()
-        else:
-            end = len(content)
+        end = (start + 10 + m2.start()) if m2 else len(content)
         sample = content[start:end]
 
     notice = ('<div style="background:#fef3c7;border:1px solid #d97706;border-radius:10px;padding:14px 18px;'
@@ -561,7 +576,8 @@ def bundle_preview_sample(content):
               'color:#7c2d12;font-size:14px;">'
               '👁️ <b>Ye sirf PREVIEW hai</b> — ek sample chapter dikhaya ja raha hai. '
               'Poora bundle kharidne ke liye <b>🛒 Buy</b> button dabayein.</div>')
-    return f'<html><head><meta charset="UTF-8"><title>Preview</title></head><body>{notice}{cover}{sample}</body></html>'
+    return (f'<!DOCTYPE html><html lang="hi"><head><meta charset="UTF-8"><title>Preview</title>'
+            f'<style>{all_css}</style></head><body>{notice}{cover}{sample}</body></html>')
 
 
 @app.route("/download/<int:note_id>")
