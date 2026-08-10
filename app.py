@@ -11,6 +11,14 @@ from flask import (
     send_from_directory, abort, flash, jsonify, Response
 )
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+
+try:
+    import razorpay
+    _razorpay_available = True
+except ImportError:
+    razorpay = None
+    _razorpay_available = False
 
 from _embedded_templates import TEMPLATES as EMBEDDED_TEMPLATES
 from _qr_embed import UPI_QR_BASE64
@@ -111,6 +119,10 @@ SELLER_PHONE = os.environ.get("SELLER_PHONE", "+91-9569431430")
 SELLER_WHATSAPP = os.environ.get("SELLER_WHATSAPP", "+919569431430")
 SELLER_EMAIL = os.environ.get("SELLER_EMAIL", "as5093220@gmail.com")
 
+# Razorpay (Test Mode abhi)
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_TO7y62j31VXybk")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "8gywbRTay4qslNVywyLWEp4L")
+
 ALLOWED_EXTENSIONS = {"pdf", "html", "htm"}
 MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB max file
 
@@ -205,6 +217,23 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (subject_slug) REFERENCES subjects(slug)
         );
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id INTEGER,
+            payment_id TEXT,
+            order_id TEXT,
+            amount REAL,
+            status TEXT,
+            email TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
     """)
     # seed subjects if empty
     count = conn.execute("SELECT COUNT(*) AS c FROM subjects").fetchone()["c"]
@@ -285,10 +314,42 @@ SUBJECT_EMOJI = {
     "current-affairs": "📰", "ethics": "⚖️", "ir": "🌐",
     "internal-security": "🛡️", "indian-society": "👥", "csat": "🧮",
     "prelims": "🎯", "mains": "✍️", "other": "📚",
+    "geomorphology": "⛰️", "climatology": "🌦️", "oceanography": "🌊",
+    "indian-physiography": "🏞️", "mapping": "🗺️",
+    "geography-optional": "🗺️",
 }
 
-# Har subject ka EK preview note (demo) — sirf ye preview mein khulega, baaki locked
-DEMO_PREVIEW_IDS = {1, 3, 4, 6, 9, 106, 42}
+# Har subject ka EK preview note (demo) — DB se dynamic compute hota hai
+# (har subject mein sabse chhota id wala non-bundle note). Sirf ye preview mein khulega, baaki locked.
+def _compute_demo_preview_ids():
+    ids = set()
+    try:
+        conn = get_db()
+        rows = conn.execute(
+            """SELECT n.id, n.subject_slug FROM notes n
+               WHERE n.id = (
+                   SELECT n2.id FROM notes n2
+                   WHERE n2.subject_slug = n.subject_slug
+                     AND n2.title NOT LIKE '%Complete Bundle%'
+                   ORDER BY n2.id LIMIT 1
+               )
+               UNION
+               -- subjects jisme sirf bundle hai (fallback: sabse chhota note)
+               SELECT n3.id, n3.subject_slug FROM notes n3
+               WHERE n3.subject_slug NOT IN (
+                   SELECT DISTINCT subject_slug FROM notes WHERE title NOT LIKE '%Complete Bundle%'
+               )
+               GROUP BY n3.subject_slug HAVING n3.id = MIN(n3.id)"""
+        ).fetchall()
+        conn.close()
+        for r in rows:
+            ids.add(r["id"])
+    except Exception:
+        pass
+    return ids
+
+
+DEMO_PREVIEW_IDS = _compute_demo_preview_ids()
 
 
 def subject_emoji(slug):
@@ -319,6 +380,8 @@ def inject_globals():
         "subject_emoji": subject_emoji,
         "subject_name": subject_name,
         "demo_preview_ids": DEMO_PREVIEW_IDS,
+        "current_user": session.get("user_name"),
+        "is_user": bool(session.get("user_id")),
     }
 
 
@@ -342,11 +405,16 @@ def index():
     total_notes = conn.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
     bundle_count = conn.execute("SELECT COUNT(*) AS c FROM notes WHERE featured=1").fetchone()["c"]
     conn.close()
+    # Geography ke parts ko home grid se chhupao (wo Geography ke andar dikhenge)
+    child_slugs = set()
+    for children in CHILD_SUBJECTS.values():
+        child_slugs.update(children)
+    subject_counts = [dict(r) for r in subject_counts if r["slug"] not in child_slugs and r["slug"] != "geography-optional"]
     return render_template(
         "index.html",
         featured=[dict(n) for n in featured],
         recent=[dict(n) for n in recent],
-        subject_counts=[dict(r) for r in subject_counts],
+        subject_counts=subject_counts,
         total_notes=total_notes,
         bundle_count=bundle_count,
         subject_count=len(subject_counts),
@@ -383,6 +451,12 @@ def browse():
     )
 
 
+# Har subject ke child/up-parts (geography ke 5 parts)
+CHILD_SUBJECTS = {
+    "geography": ["geomorphology", "climatology", "oceanography", "indian-physiography", "mapping"],
+}
+
+
 @app.route("/subject/<slug>")
 def subject_page(slug):
     subj = get_subject(slug)
@@ -393,8 +467,17 @@ def subject_page(slug):
         "SELECT * FROM notes WHERE subject_slug=? ORDER BY created_at DESC",
         (slug,),
     ).fetchall()
+    # child subjects (sub-parts) fetch karo
+    children = []
+    for cslug in CHILD_SUBJECTS.get(slug, []):
+        c = get_subject(cslug)
+        if c:
+            c_count = conn.execute("SELECT COUNT(*) AS c FROM notes WHERE subject_slug=?", (cslug,)).fetchone()["c"]
+            c = dict(c)
+            c["count"] = c_count
+            children.append(c)
     conn.close()
-    return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows])
+    return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children)
 
 
 @app.route("/note/<int:note_id>")
@@ -490,6 +573,82 @@ def upi_qr(filename="qr.png"):
     return send_from_directory(UPI_FOLDER, filename)
 
 
+# ============================================================
+# RAZORPAY PAYMENT ROUTES (Test Mode)
+# ============================================================
+def _get_razorpay_client():
+    if not _razorpay_available or not RAZORPAY_KEY_SECRET:
+        return None
+    return razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+@app.route("/pay/<int:note_id>")
+def pay_order(note_id):
+    """Razorpay order create karo (test mode)."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    conn.close()
+    if not row:
+        abort(404)
+    note = dict(row)
+    client = _get_razorpay_client()
+    if client is None:
+        flash("Razorpay configured nahi hai (Key Secret missing).", "error")
+        return redirect(url_for("buy_note", note_id=note_id))
+    amount_paise = int(round(note["price"] * 100))
+    try:
+        order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": f"note_{note_id}",
+            "payment_capture": 1,
+        })
+    except Exception as e:
+        flash(f"Order create error: {e}", "error")
+        return redirect(url_for("buy_note", note_id=note_id))
+    return render_template(
+        "pay.html",
+        note=note,
+        order=order,
+        key_id=RAZORPAY_KEY_ID,
+        RAZORPAY_TEST_MODE=True,
+    )
+
+
+@app.route("/pay/verify", methods=["POST"])
+def pay_verify():
+    """Razorpay payment verify karo."""
+    params = request.form.to_dict()
+    client = _get_razorpay_client()
+    note_id = request.form.get("note_id")
+    if client is not None:
+        try:
+            client.utility.verify_payment_signature(params)
+            payment_id = params.get("razorpay_payment_id")
+            conn = get_db()
+            # record payment
+            conn.execute(
+                "INSERT INTO payments (note_id, payment_id, order_id, amount, status, email, created_at) VALUES (?,?,?,?,?,?,?)",
+                (note_id, payment_id, params.get("razorpay_order_id"), request.form.get("amount"), "paid", request.form.get("email", ""), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            )
+            conn.commit()
+            conn.close()
+            flash("Payment successful! ✅ Notes aapko WhatsApp par bheja jayega.", "success")
+            return redirect(url_for("buy_success", note_id=note_id, payment_id=payment_id))
+        except Exception as e:
+            flash(f"Payment verify error: {e}", "error")
+    return redirect(url_for("buy_note", note_id=int(note_id) if note_id else 1))
+
+
+@app.route("/buy/success/<int:note_id>")
+def buy_success(note_id):
+    conn = get_db()
+    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    conn.close()
+    note = dict(row) if row else None
+    return render_template("buy_success.html", note=note, payment_id=request.args.get("payment_id"))
+
+
 @app.route("/about")
 def about():
     return render_template("about.html")
@@ -500,6 +659,80 @@ def contact():
     return render_template("contact.html",
                            SELLER_EMAIL=SELLER_EMAIL,
                            SELLER_WHATSAPP=SELLER_WHATSAPP)
+
+
+# ============================================================
+# USER ROUTES (Login / Signup / Dashboard)
+# ============================================================
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        if not name or not email or not password:
+            flash("Naam, email aur password sab zaroori hai.", "error")
+            return redirect(url_for("signup"))
+        if password != confirm:
+            flash("Password aur confirm password match nahi karte.", "error")
+            return redirect(url_for("signup"))
+        if len(password) < 4:
+            flash("Password kam se kam 4 characters ka rakhein.", "error")
+            return redirect(url_for("signup"))
+        conn = get_db()
+        exists = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+        if exists:
+            conn.close()
+            flash("Is email se account pehle se hai. Login karein.", "error")
+            return redirect(url_for("login"))
+        conn.execute(
+            "INSERT INTO users (name, email, password_hash, created_at) VALUES (?,?,?,?)",
+            (name, email, generate_password_hash(password), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        conn.commit()
+        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        conn.close()
+        session["user_id"] = user["id"]
+        session["user_name"] = user["name"]
+        flash(f"Welcome, {name}! 🎉 Account ban gaya.", "success")
+        return redirect(url_for("user_dashboard"))
+    return render_template("signup.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        conn.close()
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"] = user["id"]
+            session["user_name"] = user["name"]
+            flash(f"Welcome back, {user['name']}! 👋", "success")
+            return redirect(url_for("user_dashboard"))
+        flash("Galat email ya password!", "error")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    session.pop("user_name", None)
+    flash("Aap logout ho gaye.", "info")
+    return redirect(url_for("index"))
+
+
+@app.route("/account")
+def user_dashboard():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    conn.close()
+    return render_template("account.html", user=dict(user) if user else None)
 
 
 # ============================================================

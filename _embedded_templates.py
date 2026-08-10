@@ -71,6 +71,38 @@ TEMPLATES = {
 </div>
 {% endblock %}
 """,
+    'account.html': """{% extends "base.html" %}
+{% block title %}My Account — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="section-title">
+    <h2>🧑‍💼 My Account</h2>
+    <p>Aapka profile.</p>
+  </div>
+  {% if user %}
+  <div class="card" style="max-width:520px;">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="width:80px;height:80px;border-radius:50%;background:var(--grad-emerald);color:#fff;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;margin:0 auto;">{{ user.name[0]|upper }}</div>
+    </div>
+    <div class="list-keyval">
+      <div><span>Naam</span><b>{{ user.name }}</b></div>
+      <div><span>Email</span><b>{{ user.email }}</b></div>
+      <div><span>Member Since</span><b>{{ user.created_at }}</b></div>
+    </div>
+    <div style="text-align:center; margin-top:16px;">
+      <a href="{{ url_for('browse') }}" class="btn btn-gold">🛒 Notes Dekhein</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-danger" style="margin-left:8px;">Logout</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center; padding:40px;">
+    <p>Account nahi mila. <a href="{{ url_for('login') }}">Login karein</a></p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+""",
     'admin_dashboard.html': """{% extends "base.html" %}
 {% block title %}Admin Dashboard — {{ SITE_NAME }}{% endblock %}
 
@@ -320,23 +352,23 @@ TEMPLATES = {
    glassmorphism, smooth animations
    ============================================================ */
 :root {
-  --emerald: #0c5c3a;
-  --emerald-dark: #073c25;
-  --emerald-deep: #052a1a;
+  --emerald: #6c2bd9;
+  --emerald-dark: #4b1a9e;
+  --emerald-deep: #2d0d66;
   --gold: #c9a227;
   --gold-light: #e6c25c;
-  --cream: #faf7f1;
+  --cream: #f8f6fc;
   --white: #ffffff;
-  --ink: #14211a;
-  --muted: #6b7a71;
-  --line: rgba(12, 92, 58, 0.12);
-  --shadow-sm: 0 2px 10px rgba(5, 42, 26, 0.06);
-  --shadow: 0 10px 34px rgba(5, 42, 26, 0.12);
-  --shadow-lg: 0 24px 60px rgba(5, 42, 26, 0.18);
+  --ink: #1a1130;
+  --muted: #6b5f85;
+  --line: rgba(108, 43, 217, 0.12);
+  --shadow-sm: 0 2px 10px rgba(45, 13, 102, 0.06);
+  --shadow: 0 10px 34px rgba(45, 13, 102, 0.12);
+  --shadow-lg: 0 24px 60px rgba(45, 13, 102, 0.18);
   --radius: 20px;
   --radius-sm: 12px;
-  --grad-gold: linear-gradient(120deg, #d4af37, #f2d27a, #c9a227);
-  --grad-emerald: linear-gradient(135deg, #0c5c3a, #073c25, #052a1a);
+  --grad-gold: linear-gradient(120deg, #b388ff, #d9c2ff, #c9a227);
+  --grad-emerald: linear-gradient(135deg, #6c2bd9, #4b1a9e, #2d0d66);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -373,7 +405,7 @@ header.site {
 .brand-logo {
   width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
   background: var(--grad-emerald); color: #fff; font-weight: 800; font-size: 22px;
-  box-shadow: 0 6px 18px rgba(5,42,26,.3);
+  box-shadow: 0 6px 18px rgba(45,13,102,.3);
   position: relative; overflow: hidden;
 }
 .brand-logo::after {
@@ -389,10 +421,10 @@ header.site {
   padding: 9px 15px; border-radius: 11px; color: var(--ink); font-weight: 600; font-size: 15px;
   transition: .18s; position: relative;
 }
-.nav-links a:hover { background: rgba(12,92,58,.07); color: var(--emerald); }
+.nav-links a:hover { background: rgba(108,43,217,.07); color: var(--emerald); }
 .nav-links a.admin-btn {
   background: var(--grad-emerald); color: #fff; font-weight: 700; margin-left: 4px;
-  box-shadow: 0 4px 14px rgba(5,42,26,.25);
+  box-shadow: 0 4px 14px rgba(45,13,102,.25);
 }
 .nav-links a.admin-btn:hover { transform: translateY(-1px); color: #fff; }
 
@@ -409,7 +441,7 @@ header.site {
 .searchbar button:hover { background: var(--emerald-dark); }
 
 .theme-toggle {
-  background: rgba(12,92,58,.08); border: 1px solid var(--line); border-radius: 11px;
+  background: rgba(108,43,217,.08); border: 1px solid var(--line); border-radius: 11px;
   padding: 10px 13px; cursor: pointer; font-size: 17px; line-height: 1; transition: .18s;
 }
 .theme-toggle:hover { border-color: var(--gold); }
@@ -440,7 +472,7 @@ header.site {
 }
 .hero h1 { font-size: 56px; margin: 26px 0 16px; font-weight: 800; letter-spacing: -1.2px; line-height: 1.08; }
 .hero h1 .grad-text { background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 18px rgba(246,210,80,.55), 0 0 42px rgba(246,183,60,.35); }
-.hero h1 { text-shadow: 0 0 20px rgba(120,220,170,.35), 0 0 60px rgba(12,92,58,.45); }
+.hero h1 { text-shadow: 0 0 20px rgba(120,220,170,.35), 0 0 60px rgba(108,43,217,.45); }
 .hero p { font-size: 19px; opacity: .9; max-width: 650px; margin: 0 auto 34px; font-weight: 300; }
 .hero .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
@@ -455,8 +487,8 @@ header.site {
 .btn-green { background: var(--emerald); color: #fff; }
 .btn-green:hover { background: var(--emerald-dark); transform: translateY(-2px); }
 .btn-sm { padding: 9px 16px; font-size: 13px; border-radius: 10px; }
-.btn-ghost { background: rgba(12,92,58,.07); color: var(--emerald); }
-.btn-ghost:hover { background: rgba(12,92,58,.13); }
+.btn-ghost { background: rgba(108,43,217,.07); color: var(--emerald); }
+.btn-ghost:hover { background: rgba(108,43,217,.13); }
 .btn-danger { background: #dc2626; color: #fff; }
 
 /* Hero stats */
@@ -475,8 +507,8 @@ header.site {
   display: inline-block; font-size: 12px; font-weight: 700; color: var(--gold); text-transform: uppercase;
   letter-spacing: 2.5px; margin-bottom: 8px;
 }
-.section-title h2 { font-size: 34px; margin: 4px 0 6px; font-weight: 800; letter-spacing: -0.6px; color: var(--ink); text-shadow: 0 0 14px rgba(12,92,58,.12); }
-.section-title h2 em { font-style: normal; color: var(--emerald); text-shadow: 0 0 16px rgba(12,92,58,.35); }
+.section-title h2 { font-size: 34px; margin: 4px 0 6px; font-weight: 800; letter-spacing: -0.6px; color: var(--ink); text-shadow: 0 0 14px rgba(108,43,217,.12); }
+.section-title h2 em { font-style: normal; color: var(--emerald); text-shadow: 0 0 16px rgba(108,43,217,.35); }
 .section-title p { color: var(--muted); margin: 0; }
 
 /* ===== Subject cards — premium ===== */
@@ -488,9 +520,9 @@ header.site {
 }
 .subject-card::before {
   content: ''; position: absolute; inset: 0; opacity: 0; transition: .3s;
-  background: linear-gradient(160deg, rgba(12,92,58,.06), transparent 60%);
+  background: linear-gradient(160deg, rgba(108,43,217,.06), transparent 60%);
 }
-.subject-card:hover { transform: translateY(-6px); box-shadow: 0 0 22px rgba(12,92,58,.35), 0 0 50px rgba(12,92,58,.15), var(--shadow); border-color: rgba(201,162,39,.6); }
+.subject-card:hover { transform: translateY(-6px); box-shadow: 0 0 22px rgba(108,43,217,.35), 0 0 50px rgba(108,43,217,.15), var(--shadow); border-color: rgba(201,162,39,.6); }
 .subject-card:hover::before { opacity: 1; }
 .subject-card .emoji { font-size: 38px; display: block; margin-bottom: 10px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.1)); }
 .subject-card .name { font-weight: 700; color: var(--ink); font-size: 15px; position: relative; }
@@ -503,13 +535,13 @@ header.site {
   overflow: hidden; display: flex; flex-direction: column; transition: .25s;
   box-shadow: var(--shadow-sm); position: relative;
 }
-.note-card:hover { transform: translateY(-8px); box-shadow: 0 0 26px rgba(12,92,58,.4), 0 0 60px rgba(12,92,58,.16), var(--shadow-lg); border-color: rgba(201,162,39,.55); }
+.note-card:hover { transform: translateY(-8px); box-shadow: 0 0 26px rgba(108,43,217,.4), 0 0 60px rgba(108,43,217,.16), var(--shadow-lg); border-color: rgba(201,162,39,.55); }
 .note-thumb {
   height: 150px; display: flex; align-items: center; justify-content: center; position: relative;
-  background: linear-gradient(135deg, #eef6f0, #dcebe2); font-size: 54px;
+  background: linear-gradient(135deg, #efe9fc, #ddd0f5); font-size: 54px;
 }
 .note-thumb .type-badge {
-  position: absolute; top: 12px; right: 12px; background: rgba(12,92,58,.88); color: #fff;
+  position: absolute; top: 12px; right: 12px; background: rgba(108,43,217,.88); color: #fff;
   font-size: 10px; font-weight: 700; padding: 4px 11px; border-radius: 20px; text-transform: uppercase; letter-spacing: .6px;
 }
 .badge-featured {
@@ -538,8 +570,8 @@ header.site {
 .feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
 .feature-card .ico {
   width: 62px; height: 62px; margin: 0 auto 16px; border-radius: 18px; display: grid; place-items: center;
-  font-size: 28px; background: linear-gradient(135deg, #eef6f0, #dcebe2);
-  box-shadow: inset 0 0 0 1px rgba(12,92,58,.08);
+  font-size: 28px; background: linear-gradient(135deg, #efe9fc, #ddd0f5);
+  box-shadow: inset 0 0 0 1px rgba(108,43,217,.08);
 }
 .feature-card h3 { margin: 0 0 5px; font-size: 17px; }
 .feature-card p { color: var(--muted); font-size: 13.5px; margin: 0; }
@@ -565,14 +597,14 @@ header.site {
   width: 100%; text-align: center; cursor: pointer; border: none; outline: none;
   background: var(--grad-emerald); color: #fff; border-radius: var(--radius);
   padding: 30px 20px; font-size: 22px; font-weight: 800; letter-spacing: .5px;
-  box-shadow: 0 0 26px rgba(12,92,58,.35), 0 8px 30px rgba(5,42,26,.2);
+  box-shadow: 0 0 26px rgba(108,43,217,.35), 0 8px 30px rgba(45,13,102,.2);
   transition: .25s; position: relative; overflow: hidden; font-family: inherit;
 }
 .optional-toggle::before {
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(circle at 50% 0%, rgba(246,210,80,.28), transparent 55%);
 }
-.optional-toggle:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(246,210,80,.4), 0 0 80px rgba(12,92,58,.3); }
+.optional-toggle:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(246,210,80,.4), 0 0 80px rgba(108,43,217,.3); }
 .optional-toggle .opt-emoji { font-size: 34px; display: block; margin-bottom: 8px; position: relative; }
 .optional-toggle span { position: relative; }
 .optional-toggle .opt-hint { display: block; font-size: 13px; font-weight: 500; opacity: .85; margin-top: 8px; position: relative; }
@@ -583,25 +615,31 @@ header.site {
 .optional-panel.open { display: block; animation: optFade .35s ease; }
 @keyframes optFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 .optional-panel h3 { margin: 0 0 16px; font-size: 20px; }
-.optional-panel h3 em { font-style: normal; color: var(--emerald); text-shadow: 0 0 14px rgba(12,92,58,.3); }
+.optional-panel h3 em { font-style: normal; color: var(--emerald); text-shadow: 0 0 14px rgba(108,43,217,.3); }
 .optional-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
 .optional-card {
   background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius-sm);
   padding: 22px 14px; text-align: center; transition: .2s; display: block;
   box-shadow: var(--shadow-sm);
 }
-.optional-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 0 20px rgba(12,92,58,.25); }
+.optional-card:hover { transform: translateY(-4px); border-color: var(--gold); box-shadow: 0 0 20px rgba(108,43,217,.25); }
 .optional-card .emoji { font-size: 32px; display: block; margin-bottom: 8px; }
 .optional-card .name { font-weight: 700; color: var(--ink); font-size: 15px; }
 .optional-card .tag { font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
-.optional-card.featured { border-color: var(--gold); box-shadow: 0 0 24px rgba(246,210,80,.35); background: linear-gradient(135deg,#fdf6e3,#fff); }
+.optional-card.featured {
+  border: 2px solid #b388ff; box-shadow: 0 0 28px rgba(108,43,217,.45), 0 0 60px rgba(108,43,217,.2);
+  background: linear-gradient(135deg, #6c2bd9, #4b1a9e); color: #fff;
+}
+.optional-card.featured .name { color: #fff; font-size: 17px; font-weight: 800; }
+.optional-card.featured .tag { color: #e6c25c; }
+.optional-card.featured .emoji { filter: drop-shadow(0 2px 6px rgba(0,0,0,.3)); }
 
 /* ===== NEON QUOTE SECTION ===== */
 .quote-section { margin: 60px 0; text-align: center; }
 .quote-box {
   background: var(--grad-emerald); border-radius: var(--radius); padding: 50px 36px;
   position: relative; overflow: hidden; border: 1px solid rgba(201,162,39,.4);
-  box-shadow: 0 0 40px rgba(12,92,58,.4), 0 0 80px rgba(12,92,58,.2), var(--shadow-lg);
+  box-shadow: 0 0 40px rgba(108,43,217,.4), 0 0 80px rgba(108,43,217,.2), var(--shadow-lg);
 }
 .quote-box::before {
   content: ''; position: absolute; inset: 0;
@@ -688,18 +726,18 @@ footer .copy { border-top: 1px solid rgba(255,255,255,.1); padding-top: 18px; fo
 
 /* ===== DARK MODE ===== */
 body.dark-mode {
-  --cream: #0c1310; --white: #14211a; --ink: #e9f2ec; --muted: #9db3a7; --line: rgba(255,255,255,.08);
+  --cream: #100b1a; --white: #1a1130; --ink: #ece6f7; --muted: #a89bc4; --line: rgba(255,255,255,.08);
   --shadow-sm: 0 2px 10px rgba(0,0,0,.4); --shadow: 0 10px 34px rgba(0,0,0,.5); --shadow-lg: 0 24px 60px rgba(0,0,0,.6);
 }
-body.dark-mode header.site { background: rgba(12,19,16,.85); }
+body.dark-mode header.site { background: rgba(16,11,26,.85); }
 body.dark-mode .brand-name { color: #fff; }
 body.dark-mode .hero { background: var(--grad-emerald); }
-body.dark-mode .topbar, body.dark-mode footer.site { background: #050d09; }
+body.dark-mode .topbar, body.dark-mode footer.site { background: #07030f; }
 body.dark-mode .subject-card, body.dark-mode .note-card, body.dark-mode .feature-card, body.dark-mode .card, body.dark-mode .stat { background: var(--white); }
 body.dark-mode .searchbar input, body.dark-mode .filter-bar input, body.dark-mode .filter-bar select,
-body.dark-mode .form-group input, body.dark-mode .form-group textarea, body.dark-mode .form-group select { background: #0e1813; color: #e9f2ec; border-color: var(--line); }
-body.dark-mode .note-thumb { background: linear-gradient(135deg, #1a3528, #0f241c); }
-body.dark-mode .nav-links a:hover, body.dark-mode .theme-toggle, body.dark-mode .btn-ghost { background: #1a2a21; color: #e9f2ec; }
+body.dark-mode .form-group input, body.dark-mode .form-group textarea, body.dark-mode .form-group select { background: #120a22; color: #ece6f7; border-color: var(--line); }
+body.dark-mode .note-thumb { background: linear-gradient(135deg, #2a1650, #1a0d33); }
+body.dark-mode .nav-links a:hover, body.dark-mode .theme-toggle, body.dark-mode .btn-ghost { background: #251545; color: #ece6f7; }
 body.dark-mode .admin-table { background: var(--white); }
 body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 
@@ -748,11 +786,18 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         <a href="{{ url_for('browse') }}">All Notes</a>
         <a href="{{ url_for('about') }}">About</a>
         <a href="{{ url_for('contact') }}">Contact</a>
+        {% if is_user %}
+          <a href="{{ url_for('user_dashboard') }}">👤 {{ current_user }}</a>
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login') }}">Login</a>
+          <a class="admin-btn" href="{{ url_for('signup') }}">Sign Up</a>
+        {% endif %}
         {% if is_admin %}
           <a class="admin-btn" href="{{ url_for('admin_upload') }}">+ Upload</a>
-          <a class="admin-btn" href="{{ url_for('admin_logout') }}">Logout</a>
+          <a class="admin-btn" href="{{ url_for('admin_logout') }}">Admin Logout</a>
         {% else %}
-          <a class="admin-btn" href="{{ url_for('admin_login') }}">Admin</a>
+          <a href="{{ url_for('admin_login') }}">Admin</a>
         {% endif %}
         <button class="theme-toggle" id="themeToggle" title="Dark/Light">&#127769;</button>
       </nav>
@@ -899,6 +944,8 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 
     <div class="buy-box card" style="text-align:center;">
       <h3 style="margin-top:0;">💳 UPI Payment</h3>
+      <a href="{{ url_for('pay_order', note_id=note.id) }}" class="btn btn-gold" style="width:100%; font-size:16px; margin-bottom:14px;">💳 Pay with Razorpay (Test)</a>
+      <div style="font-size:12px;color:var(--muted); margin-bottom:14px;">— ya UPI se pay karein —</div>
       {% if qr %}
         <img src="{{ qr }}" alt="UPI QR" style="width:200px;height:200px;object-fit:contain;border:1px solid var(--border);border-radius:12px;">
         <p style="font-size:13px;color:var(--muted);margin:8px 0;">Scan karke ₹{{ '%g' % note.price }} bharein</p>
@@ -915,6 +962,30 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <a href="tel:{{ SELLER_PHONE }}" class="btn btn-ghost" style="width:100%; margin-top:10px;">📞 Call Karein</a>
       <a href="mailto:{{ SELLER_EMAIL }}" class="btn btn-ghost" style="width:100%; margin-top:10px;">✉️ Email Karein</a>
       <p style="font-size:12px;color:var(--muted);margin-top:14px;">Payment bhejne ke baad screen shot bhejna na bhoolein!</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+""",
+    'buy_success.html': """{% extends "base.html" %}
+{% block title %}Payment Success — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="card" style="max-width:560px; margin:40px auto; text-align:center;">
+    <div style="font-size:70px;">✅</div>
+    <h2 style="margin:10px 0;">Payment Successful!</h2>
+    <p style="color:var(--muted);">Aapki payment ho gayi hai. Notes aapko jald hi milenge.</p>
+    {% if note %}
+    <div class="list-keyval" style="text-align:left;">
+      <div><span>Note</span><b>{{ note.title }}</b></div>
+      <div><span>Payment ID</span><b>{{ payment_id }}</b></div>
+      <div><span>Amount</span><b class="price">₹{{ '%g' % note.price }}</b></div>
+    </div>
+    {% endif %}
+    <div style="margin-top:20px;">
+      <a href="{{ url_for('browse') }}" class="btn btn-gold">📖 Aur Notes Dekhein</a>
+      <a href="{{ url_for('index') }}" class="btn btn-ghost">🏠 Home</a>
     </div>
   </div>
 </div>
@@ -987,32 +1058,12 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <span class="opt-hint">👇 Click karke dekhein — sabse popular optional: Geography</span>
     </button>
     <div class="optional-panel" id="optionalPanel">
-      <h3>🎓 UPSC <em>Optional Subjects</em></h3>
+      <h3>🎓 UPSC <em>Optional Subject</em></h3>
       <div class="optional-grid">
-        <a class="optional-card featured" href="{{ url_for('subject_page', slug='geography') }}">
+        <a class="optional-card featured" href="{{ url_for('subject_page', slug='geography-optional') }}">
           <span class="emoji">🌍</span>
-          <span class="tag">⭐ Most Popular</span>
-          <span class="name">Geography</span>
-        </a>
-        <a class="optional-card" href="{{ url_for('subject_page', slug='history') }}">
-          <span class="emoji">🏺</span>
-          <span class="name">History</span>
-        </a>
-        <a class="optional-card" href="{{ url_for('subject_page', slug='polity') }}">
-          <span class="emoji">🏛️</span>
-          <span class="name">Polity</span>
-        </a>
-        <a class="optional-card" href="{{ url_for('subject_page', slug='economics') }}">
-          <span class="emoji">📈</span>
-          <span class="name">Economics</span>
-        </a>
-        <a class="optional-card" href="{{ url_for('subject_page', slug='science-tech') }}">
-          <span class="emoji">🔬</span>
-          <span class="name">Science & Tech</span>
-        </a>
-        <a class="optional-card" href="{{ url_for('subject_page', slug='art-culture') }}">
-          <span class="emoji">🎭</span>
-          <span class="name">Art & Culture</span>
+          <span class="tag">⭐ UPSC Optional</span>
+          <span class="name">Geography Optional</span>
         </a>
       </div>
     </div>
@@ -1119,6 +1170,35 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 </div>
 {% endblock %}
 """,
+    'login.html': """{% extends "base.html" %}
+{% block title %}Login — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="card">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:50px;">🔐</div>
+      <h2 style="margin:8px 0 4px;">Login Karein</h2>
+      <p style="color:var(--muted); margin:0; font-size:14px;">Apne account se login karein.</p>
+    </div>
+    <form method="POST">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
+    </form>
+    <p style="text-align:center; font-size:14px; color:var(--muted); margin-top:16px;">
+      Account nahi hai? <a href="{{ url_for('signup') }}"><b>Sign up karein</b></a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+""",
     'note_detail.html': """{% extends "base.html" %}
 {% block title %}{{ note.title }} — {{ SITE_NAME }}{% endblock %}
 
@@ -1193,6 +1273,104 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 </div>
 {% endblock %}
 """,
+    'pay.html': """{% extends "base.html" %}
+{% block title %}Payment — {{ note.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="detail-wrap">
+    <div class="detail-main">
+      <div class="card">
+        <h2>💳 Razorpay Test Payment</h2>
+        {% if RAZORPAY_TEST_MODE %}
+          <div class="flash info" style="margin:0 0 16px;">⚠️ Ye TEST mode hai — koi real payment nahi hota. Testing ke liye use karein.</div>
+        {% endif %}
+        <div class="list-keyval">
+          <div><span>Note</span><b>{{ note.title }}</b></div>
+          <div><span>Amount</span><b class="price">₹{{ '%g' % note.price }}</b></div>
+        </div>
+        <p style="color:var(--muted);">"Pay" button dabao → Razorpay test popup → koi bhi test card/UPI use karo → payment success.</p>
+        <button id="rzp-button" class="btn btn-gold" style="width:100%;font-size:17px;">💳 Pay ₹{{ '%g' % note.price }} (Test)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  var options = {
+    key: "{{ key_id }}",
+    amount: {{ order['amount'] }},
+    currency: "{{ order['currency'] }}",
+    name: "UPSC Notes Store",
+    description: "{{ note.title }}",
+    order_id: "{{ order['id'] }}",
+    handler: function (response) {
+      // payment success par verify route par bhejo
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = "{{ url_for('pay_verify') }}";
+      var fields = {
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_signature: response.razorpay_signature,
+        note_id: "{{ note.id }}"
+      };
+      for (var k in fields) {
+        var i = document.createElement('input');
+        i.type = 'hidden'; i.name = k; i.value = fields[k];
+        form.appendChild(i);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    },
+    modal: { ondismiss: function(){ alert("Payment cancel ho gaya. Dobara try karein."); } }
+  };
+  document.getElementById('rzp-button').onclick = function(e) {
+    var rzp = new Razorpay(options);
+    rzp.open();
+    e.preventDefault();
+  };
+</script>
+{% endblock %}
+""",
+    'signup.html': """{% extends "base.html" %}
+{% block title %}Sign Up — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="card">
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:50px;">✨</div>
+      <h2 style="margin:8px 0 4px;">Account Banayein</h2>
+      <p style="color:var(--muted); margin:0; font-size:14px;">Notes kharidne ke liye account banao.</p>
+    </div>
+    <form method="POST">
+      <div class="form-group">
+        <label>Apna Naam</label>
+        <input type="text" name="name" required placeholder="e.g. Rahul Kumar">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="you@example.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" name="confirm" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Create Account</button>
+    </form>
+    <p style="text-align:center; font-size:14px; color:var(--muted); margin-top:16px;">
+      Pehle se account hai? <a href="{{ url_for('login') }}"><b>Login karein</b></a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+""",
     'subject.html': """{% extends "base.html" %}
 {% block title %}{{ subject.name }} Notes — {{ SITE_NAME }}{% endblock %}
 
@@ -1203,13 +1381,30 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     <p>{{ notes|length }} notes is subject mein available.</p>
   </div>
 
+  {% if children %}
+    <div class="section-title" style="margin-top:24px;">
+      <div class="tag">Sub-Parts</div>
+      <h2>🗂️ {{ subject.name }} ke Bhag</h2>
+      <p>Neeche ke parts mein click karke notes dekhein.</p>
+    </div>
+    <div class="subject-grid">
+      {% for c in children %}
+        <a class="subject-card" href="{{ url_for('subject_page', slug=c.slug) }}">
+          <span class="emoji">{{ subject_emoji(c.slug) }}</span>
+          <span class="name">{{ c.name }}</span>
+          <span class="count">{{ c.hindi }} · {{ c.count }} notes</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% if notes %}
     <div class="note-grid">
       {% for n in notes %}
         {% include "_note_card.html" %}
       {% endfor %}
     </div>
-  {% else %}
+  {% elif not children %}
     <div class="card" style="text-align:center; padding:50px;">
       <div style="font-size:50px;">📭</div>
       <h3>Is subject mein abhi notes nahi hain</h3>
