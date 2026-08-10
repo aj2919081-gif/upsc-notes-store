@@ -272,6 +272,18 @@ def get_ext(filename):
     return filename.rsplit(".", 1)[1].lower() if "." in filename else ""
 
 
+def get_note_content(row):
+    """Note ka content nikaalo — compressed hai toh decompress karo."""
+    content = row["content"]
+    if not content and row["content_compressed"]:
+        try:
+            import gzip
+            content = gzip.decompress(row["content_compressed"]).decode("utf-8")
+        except Exception:
+            content = ""
+    return content
+
+
 def clean_note_html(content):
     """Preview ke liye note HTML ko clean karo:
        - external font @import / @font-face hatao (network ke bina bhi render ho)
@@ -508,7 +520,7 @@ def note_view(note_id):
     # Bundle preview allowed hai (sample dikhega). Individual sirf demo ids.
     if not is_bundle and not session.get("is_admin") and note_id not in DEMO_PREVIEW_IDS:
         return redirect(url_for("buy_note", note_id=note_id))
-    content = note["content"]
+    content = get_note_content(note)
     if note["file_type"] == "html" and content:
         if is_bundle:
             content = bundle_preview_sample(content)
@@ -549,11 +561,12 @@ def download_note(note_id):
     if not row:
         abort(404)
     note = dict(row)
-    # DB content se download (html) — reliable
-    if note["file_type"] == "html" and note["content"]:
+    # DB content se download (html) — reliable (compressed bhi handle karo)
+    content = get_note_content(note)
+    if note["file_type"] == "html" and content:
         dl_name = note["original_name"] or f"note-{note_id}.html"
         return Response(
-            clean_note_html(note["content"]),
+            clean_note_html(content),
             mimetype="text/html",
             headers={"Content-Disposition": f'attachment; filename="{dl_name}"'},
         )
