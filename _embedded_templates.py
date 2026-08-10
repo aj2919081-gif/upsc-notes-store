@@ -38,7 +38,7 @@ TEMPLATES = {
       {% if n.original_price and n.original_price > n.price %}<span class="orig-price">₹{{ '%g' % n.original_price }}</span>{% endif %}
     </div>
     <div class="note-actions">
-      {% if n.id in demo_preview_ids %}
+      {% if n.id in demo_preview_ids or 'Complete Bundle' in (n.title or '') %}
         <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
       {% endif %}
       <a href="{{ url_for('buy_note', note_id=n.id) }}" class="btn btn-primary">🛒 Buy</a>

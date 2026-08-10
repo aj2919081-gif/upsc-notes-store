@@ -463,8 +463,9 @@ def subject_page(slug):
     if not subj:
         abort(404)
     conn = get_db()
+    # Subject page par SIRF bundle dikhayein, individual files nahi
     rows = conn.execute(
-        "SELECT * FROM notes WHERE subject_slug=? ORDER BY created_at DESC",
+        "SELECT * FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' ORDER BY created_at DESC",
         (slug,),
     ).fetchall()
     # child subjects (sub-parts) fetch karo
@@ -493,29 +494,48 @@ def note_detail(note_id):
 
 @app.route("/note/<int:note_id>/view")
 def note_view(note_id):
-    """Preview — SIRF demo note(s) ke liye khula. Baaki sab Buy page par redirect.
-    Isse customer sirf FREE DEMO dekh sakta hai, baaki notes payment ke baad.
+    """Preview:
+    - Bundle → sirf EK sample (cover + pehla chapter) dikhta hai, poora bundle nahi.
+    - Individual files → sirf demo/preview note khulta hai, baaki Buy page par redirect.
     Download alag se locked hai. External font imports/removed taaki preview clean ho."""
-    # Sirf har subject ka EK demo note preview ke liye allowed hai (DEMO_PREVIEW_IDS global),
-    # baaki sab Buy page par redirect.
-    if not session.get("is_admin") and note_id not in DEMO_PREVIEW_IDS:
-        return redirect(url_for("buy_note", note_id=note_id))
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
     if not row:
         abort(404)
     note = dict(row)
-    # 1) DB content (HTML) se serve karo — most reliable
-    if note["file_type"] == "html" and note["content"]:
-        return Response(clean_note_html(note["content"]), mimetype="text/html")
-    # 2) fallback: file se
+    is_bundle = "Complete Bundle" in (note["title"] or "")
+    # Bundle preview allowed hai (sample dikhega). Individual sirf demo ids.
+    if not is_bundle and not session.get("is_admin") and note_id not in DEMO_PREVIEW_IDS:
+        return redirect(url_for("buy_note", note_id=note_id))
+    content = note["content"]
+    if note["file_type"] == "html" and content:
+        if is_bundle:
+            content = bundle_preview_sample(content)
+        return Response(clean_note_html(content), mimetype="text/html")
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
         abort(404)
     folder = os.path.dirname(full)
     name = os.path.basename(full)
     return send_from_directory(folder, name, as_attachment=False)
+
+
+def bundle_preview_sample(content):
+    """Bundle HTML se sirf cover + pehla chapter (sample) extract karo."""
+    import re
+    # cover section
+    cover_match = re.search(r'(<div class="bundle-cover">.*?</div>\s*</div>\s*<div class="bundle-toc">.*?</div>)', content, re.S)
+    cover = cover_match.group(1) if cover_match else ""
+    # pehla section
+    first_section = re.search(r'(<div style="page-break-before:always;" class="bundle-section">.*?</div>\s*</div>)', content, re.S)
+    sample = first_section.group(1) if first_section else ""
+    notice = ('<div style="background:#fef3c7;border:1px solid #d97706;border-radius:10px;padding:14px 18px;'
+              'margin:14px auto;max-width:820px;text-align:center;font-family:Arial,sans-serif;'
+              'color:#7c2d12;font-size:14px;">'
+              '👁️ <b>Ye sirf PREVIEW hai</b> — ek sample chapter dikhaya ja raha hai. '
+              'Poora bundle kharidne ke liye <b>🛒 Buy</b> button dabayein.</div>')
+    return f'<html><head><meta charset="UTF-8"><title>Preview</title></head><body>{notice}{cover}{sample}</body></html>'
 
 
 @app.route("/download/<int:note_id>")
