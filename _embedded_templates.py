@@ -420,13 +420,20 @@ header.site {
 .nav-links a {
   padding: 9px 15px; border-radius: 11px; color: var(--ink); font-weight: 600; font-size: 15px;
   transition: .18s; position: relative;
+  /* Neon glow — saare buttons glow karein */
+  box-shadow: 0 0 8px rgba(108,43,217,.15), 0 0 16px rgba(108,43,217,.08);
+  border: 1px solid rgba(108,43,217,.15);
 }
-.nav-links a:hover { background: rgba(108,43,217,.07); color: var(--emerald); }
+.nav-links a:hover {
+  background: rgba(108,43,217,.12); color: var(--emerald);
+  box-shadow: 0 0 14px rgba(108,43,217,.4), 0 0 30px rgba(108,43,217,.2);
+  transform: translateY(-1px);
+}
 .nav-links a.admin-btn {
   background: var(--grad-emerald); color: #fff; font-weight: 700; margin-left: 4px;
-  box-shadow: 0 4px 14px rgba(45,13,102,.25);
+  box-shadow: 0 4px 14px rgba(45,13,102,.25), 0 0 10px rgba(108,43,217,.3);
 }
-.nav-links a.admin-btn:hover { transform: translateY(-1px); color: #fff; }
+.nav-links a.admin-btn:hover { transform: translateY(-1px); color: #fff; box-shadow: 0 0 18px rgba(108,43,217,.6), 0 0 40px rgba(108,43,217,.3); }
 
 .searchbar { display: flex; flex: 1; max-width: 320px; }
 .searchbar input {
@@ -527,6 +534,13 @@ header.site {
 .subject-card .emoji { font-size: 38px; display: block; margin-bottom: 10px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.1)); }
 .subject-card .name { font-weight: 700; color: var(--ink); font-size: 15px; position: relative; }
 .subject-card .count { font-size: 12px; color: var(--muted); margin-top: 4px; position: relative; }
+.subject-card .exam-tag {
+  display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; color: #fff; letter-spacing: .4px;
+  background: linear-gradient(90deg, var(--emerald), var(--emerald-dark));
+  box-shadow: 0 0 10px rgba(108,43,217,.3);
+  position: relative;
+}
 
 /* ===== Note cards — luxury ===== */
 .note-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 26px; }
@@ -737,7 +751,7 @@ body.dark-mode .subject-card, body.dark-mode .note-card, body.dark-mode .feature
 body.dark-mode .searchbar input, body.dark-mode .filter-bar input, body.dark-mode .filter-bar select,
 body.dark-mode .form-group input, body.dark-mode .form-group textarea, body.dark-mode .form-group select { background: #120a22; color: #ece6f7; border-color: var(--line); }
 body.dark-mode .note-thumb { background: linear-gradient(135deg, #2a1650, #1a0d33); }
-body.dark-mode .nav-links a:hover, body.dark-mode .theme-toggle, body.dark-mode .btn-ghost { background: #251545; color: #ece6f7; }
+body.dark-mode .nav-links a:hover, body.dark-mode .theme-toggle, body.dark-mode .btn-ghost { background: #251545; color: #ece6f7; box-shadow: 0 0 12px rgba(108,43,217,.3); }
 body.dark-mode .admin-table { background: var(--white); }
 body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 
@@ -783,7 +797,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 
       <nav class="nav-links">
         <a href="{{ url_for('index') }}">Home</a>
-        <a href="{{ url_for('browse') }}">All Notes</a>
         <a href="{{ url_for('about') }}">About</a>
         <a href="{{ url_for('contact') }}">Contact</a>
         {% if is_user %}
@@ -845,7 +858,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         <div>
           <h4>Quick Links</h4>
           <a href="{{ url_for('index') }}">Home</a>
-          <a href="{{ url_for('browse') }}">All Notes</a>
           <a href="{{ url_for('about') }}">About Us</a>
           <a href="{{ url_for('contact') }}">Contact</a>
         </div>
@@ -1046,6 +1058,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         <span class="emoji">{{ subject_emoji(s.slug) }}</span>
         <span class="name">{{ s.name }}</span>
         <span class="count">{{ s.hindi }} · {{ s.cnt }} notes</span>
+        <span class="exam-tag">📝 Prelims + Mains</span>
       </a>
     {% endfor %}
   </div>
@@ -1170,6 +1183,47 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 </div>
 {% endblock %}
 """,
+    'library.html': """{% extends "base.html" %}
+{% block title %}My Library — {{ bundle.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="section-title">
+    <h2>📚 {{ subject_name(bundle.subject_slug) }} — Saari Files</h2>
+    <p>Neeche aapki khareedi hui bundle ki saari files chapter-wise hain. Har file open/download karein.</p>
+  </div>
+
+  <div class="flash success" style="margin:0 0 20px;">✅ Aapke paas is bundle ka poora access hai. Saari files free mein available hain.</div>
+
+  {% if files %}
+    <table class="admin-table">
+      <thead>
+        <tr><th>#</th><th>Chapter / Topic</th><th style="width:180px;">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for f in files %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><b>{{ f.title }}</b></td>
+          <td>
+            <a href="{{ url_for('note_view', note_id=f.id) }}" class="btn btn-sm btn-ghost" target="_blank">👁️ Open</a>
+            <a href="{{ url_for('download_note', note_id=f.id) }}" class="btn btn-sm btn-gold">⬇️ Download</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="card" style="text-align:center;padding:40px;">📭 Is bundle mein koi file nahi hai.</div>
+  {% endif %}
+
+  <div style="text-align:center;margin-top:24px;">
+    <a href="{{ url_for('browse') }}" class="btn btn-gold">📖 Aur Notes Dekhein</a>
+    <a href="{{ url_for('user_dashboard') }}" class="btn btn-ghost">👤 My Account</a>
+  </div>
+</div>
+{% endblock %}
+""",
     'login.html': """{% extends "base.html" %}
 {% block title %}Login — {{ SITE_NAME }}{% endblock %}
 
@@ -1240,10 +1294,11 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); white-space:pre-line;">{{ note.description or 'Koi description nahi diya gaya.' }}</p>
 
       <div class="toolbar">
-        {% if note.id in demo_preview_ids %}
+        {% if note.id in demo_preview_ids or is_admin %}
           <a href="{{ url_for('note_view', note_id=note.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
         {% endif %}
         {% if is_admin %}
+          <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn btn-gold" target="_blank">⬇️ Free Download</a>
           <form method="post" action="{{ url_for('admin_delete', note_id=note.id) }}" onsubmit="return confirm('Kya aap ye note delete karna chahte hain?');">
             <button class="btn btn-danger" type="submit">🗑️ Delete</button>
           </form>
@@ -1334,6 +1389,58 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 </script>
 {% endblock %}
 """,
+    'preview.html': """{% extends "base.html" %}
+{% block title %}Preview — {{ bundle.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="section-title">
+    <h2>👁️ {{ subject_name(bundle.subject_slug) }} — Preview</h2>
+    <p>Neeche subject ke saare topics hain aur pehli file ka sample content.</p>
+  </div>
+
+  <div class="detail-wrap">
+    <!-- Topics list -->
+    <div class="card" style="position:sticky;top:90px;max-height:80vh;overflow:auto;">
+      <h3 style="margin-top:0;">📚 {{ subject_name(bundle.subject_slug) }} ke Topics</h3>
+      <ol style="padding-left:20px; line-height:2;">
+        {% for t in topics %}
+          <li>{{ t.title }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    <!-- First file content -->
+    <div class="detail-main">
+      {% if purchased %}
+        <div class="flash success" style="margin:0 0 16px;">✅ Aapne ye bundle kharid liya hai! Saari files neeche chapter-wise available hain.</div>
+        <div style="text-align:center;margin-bottom:16px;">
+          <a href="{{ url_for('library', bundle_id=bundle.id) }}" class="btn btn-gold">📖 Pura Bundle Kholo (Saari Files)</a>
+        </div>
+      {% else %}
+        <div class="flash info" style="margin:0 0 16px;">👁️ Ye sirf PREVIEW hai — pehli file ka sample. Poora bundle kharidne ke liye <b>🛒 Buy</b> dabayein.</div>
+      {% endif %}
+      {% if first_content %}
+        <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;">
+          <iframe srcdoc="{{ first_content|e }}" style="width:100%;min-height:700px;border:none;"></iframe>
+        </div>
+      {% else %}
+        <div class="card" style="text-align:center;padding:40px;">📭 Is subject ki files abhi upload nahi hui.</div>
+      {% endif %}
+      {% if purchased %}
+        <div style="text-align:center;margin-top:20px;">
+          <a href="{{ url_for('note_view', note_id=bundle.id) }}" class="btn btn-gold">📖 Pura Bundle Kholo (Saari Files)</a>
+        </div>
+      {% else %}
+        <div style="text-align:center;margin-top:20px;">
+          <a href="{{ url_for('buy_note', note_id=bundle.id) }}" class="btn btn-gold">🛒 Poora Bundle Kharidein (₹{{ '%g' % bundle.price }})</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+""",
     'signup.html': """{% extends "base.html" %}
 {% block title %}Sign Up — {{ SITE_NAME }}{% endblock %}
 
@@ -1409,7 +1516,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <div style="font-size:50px;">📭</div>
       <h3>Is subject mein abhi notes nahi hain</h3>
       <p>Jald hi aayenge. Tab tak doosre subjects check karein.</p>
-      <a href="{{ url_for('browse') }}" class="btn btn-primary">All Notes</a>
     </div>
   {% endif %}
 </div>

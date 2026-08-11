@@ -234,6 +234,13 @@ def init_db():
             email TEXT DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            bundle_id INTEGER,
+            email TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
     """)
     # seed subjects if empty
     count = conn.execute("SELECT COUNT(*) AS c FROM subjects").fetchone()["c"]
@@ -329,6 +336,8 @@ SUBJECT_EMOJI = {
     "geomorphology": "⛰️", "climatology": "🌦️", "oceanography": "🌊",
     "indian-physiography": "🏞️", "mapping": "🗺️",
     "geography-optional": "🗺️",
+    "ancient-history": "🏺", "medieval-history": "🏰", "modern-history": "🏛️",
+    "post-independence": "🇮🇳", "world-history": "🌍",
 }
 
 # Har subject ka EK preview note (demo) — DB se dynamic compute hota hai
@@ -472,9 +481,10 @@ def browse():
     )
 
 
-# Har subject ke child/up-parts (geography ke 5 parts)
+# Har subject ke child/up-parts
 CHILD_SUBJECTS = {
     "geography": ["geomorphology", "climatology", "oceanography", "indian-physiography", "mapping"],
+    "history": ["ancient-history", "medieval-history", "modern-history", "post-independence", "world-history"],
 }
 
 
@@ -516,23 +526,55 @@ def note_detail(note_id):
 @app.route("/note/<int:note_id>/view")
 def note_view(note_id):
     """Preview:
-    - Bundle → sirf EK sample (cover + pehla chapter) dikhta hai, poora bundle nahi.
+    - Bundle → ek page jisme subject ke saare topics ki list + pehli file ka content dikhta hai.
     - Individual files → sirf demo/preview note khulta hai, baaki Buy page par redirect.
-    Download alag se locked hai. External font imports/removed taaki preview clean ho."""
+    Download alag se locked hai."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
-    conn.close()
     if not row:
+        conn.close()
         abort(404)
     note = dict(row)
     is_bundle = "Complete Bundle" in (note["title"] or "")
-    # Bundle preview allowed hai (sample dikhega). Individual sirf demo ids.
-    if not is_bundle and not session.get("is_admin") and note_id not in DEMO_PREVIEW_IDS:
+    # Kya user ne ye bundle buy kiya hai? (admin ko bhi free access)
+    purchased = False
+    if is_bundle:
+        if session.get("is_admin"):
+            purchased = True
+        elif session.get("user_id"):
+            p = conn.execute("SELECT id FROM purchases WHERE user_id=? AND bundle_id=?",
+                             (session["user_id"], note_id)).fetchone()
+            purchased = bool(p)
+    # Bundle preview → topics list + pehli file ka content
+    if is_bundle:
+        # is bundle ke subject ke saare individual notes (topics)
+        topics = [dict(r) for r in conn.execute(
+            "SELECT id, title FROM notes WHERE subject_slug=? AND title NOT LIKE '%Complete Bundle%' ORDER BY id",
+            (note["subject_slug"],)
+        ).fetchall()]
+        # pehli file ka content
+        first_content = ""
+        if topics:
+            first_row = conn.execute("SELECT * FROM notes WHERE id=?", (topics[0]["id"],)).fetchone()
+            if first_row:
+                first_content = get_note_content(dict(first_row)) or ""
+        conn.close()
+        return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased)
+    # Individual → demo ids OR purchased subject ke notes khule
+    has_access = session.get("is_admin") or note_id in DEMO_PREVIEW_IDS
+    if not has_access and session.get("user_id"):
+        # kya user ne is subject ka bundle kharida hai?
+        bought = conn.execute(
+            "SELECT id FROM purchases WHERE user_id=? AND bundle_id IN "
+            "(SELECT id FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%')",
+            (session["user_id"], note["subject_slug"])).fetchone()
+        has_access = bool(bought)
+    if not has_access:
+        conn.close()
         return redirect(url_for("buy_note", note_id=note_id))
     content = get_note_content(note)
+    conn.close()
     if note["file_type"] == "html" and content:
-        if is_bundle:
-            content = bundle_preview_sample(content)
         return Response(clean_note_html(content), mimetype="text/html")
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
@@ -580,17 +622,49 @@ def bundle_preview_sample(content):
             f'<style>{all_css}</style></head><body>{notice}{cover}{sample}</body></html>')
 
 
+@app.route("/library/<int:bundle_id>")
+def library(bundle_id):
+    """Purchased bundle — saari files chapter-wise. Sirf paid user/admin."""
+    conn = get_db()
+    bundle = conn.execute("SELECT * FROM notes WHERE id=? AND title LIKE '%Complete Bundle%'", (bundle_id,)).fetchone()
+    if not bundle:
+        conn.close()
+        abort(404)
+    has_access = session.get("is_admin")
+    if not has_access and session.get("user_id"):
+        p = conn.execute("SELECT id FROM purchases WHERE user_id=? AND bundle_id=?", (session["user_id"], bundle_id)).fetchone()
+        has_access = bool(p)
+    if not has_access:
+        conn.close()
+        return redirect(url_for("buy_note", note_id=bundle_id))
+    # bundle ke subject ke saari individual files
+    files = [dict(r) for r in conn.execute(
+        "SELECT * FROM notes WHERE subject_slug=? AND title NOT LIKE '%Complete Bundle%' ORDER BY id",
+        (bundle["subject_slug"],)
+    ).fetchall()]
+    conn.close()
+    return render_template("library.html", bundle=dict(bundle), files=files)
+
+
 @app.route("/download/<int:note_id>")
 def download_note(note_id):
-    """Download route bhi LOCKED — sirf admin/paid customer hi download kar sakta hai."""
-    if not session.get("is_admin"):
-        return redirect(url_for("buy_note", note_id=note_id))
+    """Download LOCKED — sirf admin/paid customer (jisne bundle kharida) hi download kar sakta hai."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
-    conn.close()
     if not row:
+        conn.close()
         abort(404)
     note = dict(row)
+    has_access = session.get("is_admin")
+    if not has_access and session.get("user_id"):
+        bought = conn.execute(
+            "SELECT id FROM purchases WHERE user_id=? AND bundle_id IN "
+            "(SELECT id FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%')",
+            (session["user_id"], note["subject_slug"])).fetchone()
+        has_access = bool(bought)
+    conn.close()
+    if not has_access:
+        return redirect(url_for("buy_note", note_id=note_id))
     # DB content se download (html) — reliable (compressed bhi handle karo)
     content = get_note_content(note)
     if note["file_type"] == "html" and content:
@@ -694,6 +768,12 @@ def pay_verify():
                 "INSERT INTO payments (note_id, payment_id, order_id, amount, status, email, created_at) VALUES (?,?,?,?,?,?,?)",
                 (note_id, payment_id, params.get("razorpay_order_id"), request.form.get("amount"), "paid", request.form.get("email", ""), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             )
+            # purchase record — user ko bundle access milta hai
+            if session.get("user_id"):
+                conn.execute(
+                    "INSERT INTO purchases (user_id, bundle_id, email, created_at) VALUES (?,?,?,?)",
+                    (session["user_id"], note_id, session.get("user_name",""), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                )
             conn.commit()
             conn.close()
             flash("Payment successful! ✅ Notes aapko WhatsApp par bheja jayega.", "success")
