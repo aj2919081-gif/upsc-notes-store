@@ -47,27 +47,77 @@ TEMPLATES = {
 </div>
 """,
     'about.html': """{% extends "base.html" %}
-{% block title %}About — {{ SITE_NAME }}{% endblock %}
+{% block title %}About Us — {{ SITE_NAME }}{% endblock %}
 
 {% block content %}
 <div class="container">
-  <div class="section-title"><h2>About Us</h2></div>
-  <div class="card" style="max-width:820px;">
-    <p><b>{{ SITE_NAME }}</b> ek platform hai jahan UPSC, BPCS aur State PCS aspirants ke liye premium, curated notes available hain.</p>
-    <p>Hum cover karte hain:</p>
-    <ul style="line-height:2;">
-      <li>🌍 Geography</li>
-      <li>🏛️ Polity</li>
-      <li>📈 Economics</li>
-      <li>🔬 Science &amp; Technology</li>
-      <li>🏺 History</li>
-      <li>🌿 Environment &amp; Ecology</li>
-      <li>🎭 Art &amp; Culture</li>
-      <li>📰 Current Affairs</li>
-      <li>aur aur bhi... 🎯</li>
-    </ul>
-    <p style="color:var(--muted);">Har note expert teachers aur toppers se taiyar kiya gaya hai, clear aur concise language mein.</p>
+
+  <!-- Hero -->
+  <div class="section-title">
+    <div class="tag">About Us</div>
+    <h2>UPSC Ki Taiyari, <em>Ek Jagah</em></h2>
+    <p>{{ SITE_NAME }} ek premium platform hai jo UPSC, BPSC aur State PCS aspirants ke liye expert-curated notes provide karta hai.</p>
   </div>
+
+  <!-- Mission / Vision -->
+  <div class="detail-wrap">
+    <div class="card">
+      <h3 style="margin-top:0;">🎯 Hamara Mission</h3>
+      <p>Har aspirant ko <b>high-quality, exam-focused notes</b> affordable price par provide karna. Hum samajhte hain ki sahi material hi success ki neev hai.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">🚀 Hamara Vision</h3>
+      <p>UPSC ki taiyari ko <b>aasaan, structured aur effective</b> banana — taaki har student apne sapne poore kar sake, chaahe kahi bhi ho.</p>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-grid">
+    <div class="stat"><div class="num">7+</div><div class="lbl">Complete Bundles</div></div>
+    <div class="stat"><div class="num">365+</div><div class="lbl">Premium Notes</div></div>
+    <div class="stat"><div class="num">15+</div><div class="lbl">Subjects Covered</div></div>
+    <div class="stat"><div class="num">100%</div><div class="lbl">Hindi + English</div></div>
+  </div>
+
+  <!-- Features -->
+  <div class="section-title">
+    <div class="tag">Why Choose Us</div>
+    <h2>Kyun Hum <em>Alag</em> Hain</h2>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card"><div class="ico">📄</div><h3>Curated Notes</h3><p>Expert-curated cheatsheets Prelims + Mains ke liye</p></div>
+    <div class="feature-card"><div class="ico">🗂️</div><h3>Subject-Wise</h3><p>Har subject alag — Geography, Polity, Economics, History &amp; more</p></div>
+    <div class="feature-card"><div class="ico">🎯</div><h3>Exam-Focused</h3><p>PYQ aur trend analysis ke hisaab se taiyar</p></div>
+    <div class="feature-card"><div class="ico">💳</div><h3>Simple Payment</h3><p>UPI / Razorpay se aasaan kharidari</p></div>
+    <div class="feature-card"><div class="ico">⚡</div><h3>Instant Access</h3><p>Kharidte hi saari files chapter-wise open</p></div>
+    <div class="feature-card"><div class="ico">🔐</div><h3>Secure Account</h3><p>Apne purchases hamesha apne account mein</p></div>
+  </div>
+
+  <!-- What we cover -->
+  <div class="section-title">
+    <div class="tag">Subjects</div>
+    <h2>Hum Cover <em>Karte Hain</em></h2>
+  </div>
+  <div class="subject-grid">
+    {% for s in all_subjects %}
+      {% if s.name not in ['Geomorphology','Climatology','Oceanography','Indian Physiography','Mapping','Ancient History','Medieval History','Modern History','Post Independence','World History','Geography Optional'] %}
+        <a class="subject-card" href="{{ url_for('subject_page', slug=s.slug) }}">
+          <span class="emoji">{{ s.emoji }}</span>
+          <span class="name">{{ s.name }}</span>
+          <span class="count">{{ s.hindi }}</span>
+        </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-banner">
+    <h2>Taiyari Mein Aage Raho</h2>
+    <p>Complete bundles mein saare notes ek saath — better price, better preparation.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-gold">📖 Notes Dekhein</a>
+    <a href="{{ url_for('signup') }}" class="btn btn-line">✨ Account Banayein</a>
+  </div>
+
 </div>
 {% endblock %}
 """,
@@ -1399,19 +1449,57 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     <p>Neeche subject ke saare topics hain aur pehli file ka sample content.</p>
   </div>
 
+  <!-- Child parts (jaise History ke 5 parts) -->
+  {% if child_parts %}
+    <div class="section-title">
+      <h2>🗂️ {{ subject_name(bundle.subject_slug) }} ke Bhag</h2>
+      <p>Har part ka ek preview file neeche open hota hai.</p>
+    </div>
+    <div class="subject-grid">
+      {% for c in child_parts %}
+        <a class="subject-card" href="{{ url_for('subject_page', slug=c.slug) }}">
+          <span class="emoji">{{ subject_emoji(c.slug) }}</span>
+          <span class="name">{{ c.name }}</span>
+          <span class="count">{{ c.hindi }} · {{ c.count }} files</span>
+          <span class="exam-tag">👁️ Preview Available</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <div class="detail-wrap">
     <!-- Topics list -->
     <div class="card" style="position:sticky;top:90px;max-height:80vh;overflow:auto;">
       <h3 style="margin-top:0;">📚 {{ subject_name(bundle.subject_slug) }} ke Topics</h3>
+      {% if topics %}
       <ol style="padding-left:20px; line-height:2;">
         {% for t in topics %}
           <li>{{ t.title }}</li>
         {% endfor %}
       </ol>
+      {% else %}
+        <p style="color:var(--muted);">Is subject ke parts mein files hain — upar parts dekhein.</p>
+      {% endif %}
     </div>
 
     <!-- First file content -->
     <div class="detail-main">
+      <!-- Child parts previews (har part ki ek file) -->
+      {% if child_parts and not purchased %}
+        <h3>📄 Har Part ki Ek Preview File</h3>
+        {% for c in child_parts %}
+          {% if c.preview_file %}
+            <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;margin-bottom:20px;">
+              <div style="padding:10px 16px;background:var(--grad-emerald);color:#fff;font-weight:700;">{{ subject_emoji(c.slug) }} {{ c.name }} — Preview</div>
+              <iframe src="data:text/html;base64,{{ c.preview_file.content|default('') }}" style="width:100%;min-height:500px;border:none;"></iframe>
+            </div>
+          {% endif %}
+        {% endfor %}
+        <div style="text-align:center;margin-bottom:16px;">
+          <a href="{{ url_for('buy_note', note_id=bundle.id) }}" class="btn btn-gold">🛒 Poora Bundle Kharidein (₹{{ '%g' % bundle.price }})</a>
+        </div>
+      {% endif %}
+
       {% if purchased %}
         <div class="flash success" style="margin:0 0 16px;">✅ Aapne ye bundle kharid liya hai! Saari files neeche chapter-wise available hain.</div>
         <div style="text-align:center;margin-bottom:16px;">
@@ -1422,7 +1510,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       {% endif %}
       {% if first_content %}
         <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;">
-          <iframe srcdoc="{{ first_content|e }}" style="width:100%;min-height:700px;border:none;"></iframe>
+          <iframe src="data:text/html;base64,{{ first_content }}" style="width:100%;min-height:700px;border:none;"></iframe>
         </div>
       {% else %}
         <div class="card" style="text-align:center;padding:40px;">📭 Is subject ki files abhi upload nahi hui.</div>

@@ -547,19 +547,42 @@ def note_view(note_id):
             purchased = bool(p)
     # Bundle preview → topics list + pehli file ka content
     if is_bundle:
+        # child parts (jaise history ke 5 parts, geography ke parts)
+        child_parts = []
+        for cslug in CHILD_SUBJECTS.get(note["subject_slug"], []):
+            c = get_subject(cslug)
+            if c:
+                cfiles = [dict(r) for r in conn.execute(
+                    "SELECT * FROM notes WHERE subject_slug=? AND title NOT LIKE '%Complete Bundle%' ORDER BY id LIMIT 1",
+                    (cslug,)).fetchall()]
+                c = dict(c)
+                c["count"] = conn.execute("SELECT COUNT(*) c FROM notes WHERE subject_slug=?", (cslug,)).fetchone()["c"]
+                if cfiles:
+                    pf = cfiles[0]
+                    import base64
+                    pf["content"] = base64.b64encode((get_note_content(pf) or "").encode("utf-8")).decode()
+                    c["preview_file"] = pf
+                else:
+                    c["preview_file"] = None
+                child_parts.append(c)
         # is bundle ke subject ke saare individual notes (topics)
         topics = [dict(r) for r in conn.execute(
             "SELECT id, title FROM notes WHERE subject_slug=? AND title NOT LIKE '%Complete Bundle%' ORDER BY id",
             (note["subject_slug"],)
         ).fetchall()]
-        # pehli file ka content
+        # pehli file ka content (base64 mein — iframe srcdoc blank issue se bachne ke liye)
         first_content = ""
+        import base64
         if topics:
             first_row = conn.execute("SELECT * FROM notes WHERE id=?", (topics[0]["id"],)).fetchone()
             if first_row:
-                first_content = get_note_content(dict(first_row)) or ""
+                raw = get_note_content(dict(first_row)) or ""
+                first_content = base64.b64encode(raw.encode("utf-8")).decode()
+        elif child_parts and child_parts[0]["preview_file"]:
+            raw = get_note_content(child_parts[0]["preview_file"]) or ""
+            first_content = base64.b64encode(raw.encode("utf-8")).decode()
         conn.close()
-        return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased)
+        return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased, child_parts=child_parts)
     # Individual → demo ids OR purchased subject ke notes khule
     has_access = session.get("is_admin") or note_id in DEMO_PREVIEW_IDS
     if not has_access and session.get("user_id"):
