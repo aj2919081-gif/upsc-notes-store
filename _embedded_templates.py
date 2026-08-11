@@ -580,7 +580,10 @@ header.site {
 .subject-card::before {
   content: ''; position: absolute; inset: 0; opacity: 0; transition: .3s;
   background: linear-gradient(160deg, rgba(108,43,217,.06), transparent 60%);
+  pointer-events: none; z-index: 1;
 }
+.subject-card > a { position: relative; z-index: 2; }
+.subject-card > .btn { position: relative; z-index: 3; }
 .subject-card:hover { transform: translateY(-6px); box-shadow: 0 0 22px rgba(108,43,217,.35), 0 0 50px rgba(108,43,217,.15), var(--shadow); border-color: rgba(201,162,39,.6); }
 .subject-card:hover::before { opacity: 1; }
 .subject-card .emoji { font-size: 38px; display: block; margin-bottom: 10px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.1)); }
@@ -1504,7 +1507,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       {% endif %}
       {% if purchased %}
         <div style="text-align:center;margin-top:20px;">
-          <a href="{{ url_for('note_view', note_id=bundle.id) }}" class="btn btn-gold">📖 Pura Bundle Kholo (Saari Files)</a>
+          <a href="{{ url_for('note_view', note_id=bundle.id) }}" class="btn btn-gold" target="_blank">📖 Pura Bundle Kholo (Saari Files)</a>
         </div>
       {% else %}
         <div style="text-align:center;margin-top:20px;">
