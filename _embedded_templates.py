@@ -160,68 +160,70 @@ TEMPLATES = {
 <div class="container">
   <div class="section-title">
     <h2>🧑‍💼 Admin Dashboard</h2>
-    <p>Notes manage karein — upload, featured, delete.</p>
+    <p>Notes subject-wise — pehle subject chunein, phir files serial mein.</p>
   </div>
 
   <div class="stat-grid">
     <div class="stat"><div class="num">{{ total_notes }}</div><div class="lbl">Total Notes</div></div>
-    <div class="stat"><div class="num">{{ total_files }}</div><div class="lbl">Files on Server</div></div>
     <div class="stat"><div class="num">{{ counts|length }}</div><div class="lbl">Subjects</div></div>
   </div>
 
   <div class="toolbar">
     <a href="{{ url_for('admin_upload') }}" class="btn btn-primary">➕ Naya Note Upload</a>
     <a href="{{ url_for('admin_subjects') }}" class="btn btn-ghost">🗂️ Manage Subjects</a>
-    <a href="{{ url_for('index') }}" class="btn btn-ghost" style="margin-left:auto;">View Site →</a>
   </div>
 
-  <!-- Subjects overview -->
-  <h3 style="margin-top:30px;">Subjects Overview</h3>
-  <div class="subject-grid" style="margin-bottom:30px;">
+  <!-- Subjects ki list (clickable) -->
+  <div class="section-title" style="margin-top:20px;">
+    <div class="tag">Subjects</div>
+    <h2>🗂️ Subject Chunein</h2>
+    <p>Kisi bhi subject par click karein — neeche uski files serial mein dikhengi.</p>
+  </div>
+  <div class="subject-grid">
     {% for c in counts %}
-      <a class="subject-card" href="{{ url_for('subject_page', slug=c.slug) }}">
-        <div class="emoji">{{ subject_emoji(c.slug) }}</div>
-        <div class="name">{{ c.name }}</div>
-        <div class="count">{{ c.cnt }} notes</div>
+      <a class="subject-card" href="#sub-{{ c.slug }}">
+        <span class="emoji">{{ subject_emoji(c.slug) }}</span>
+        <span class="name">{{ c.name }}</span>
+        <span class="count">{{ c.hindi }} · {{ c.cnt }} files</span>
       </a>
     {% endfor %}
   </div>
 
-  <h3>Saare Notes ({{ notes|length }})</h3>
-  <table class="admin-table">
-    <thead>
-      <tr>
-        <th>ID</th><th>Title</th><th>Subject</th><th>Type</th><th>Price</th><th>Featured</th><th style="width:190px;">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for n in notes %}
-      <tr>
-        <td>#{{ n.id }}</td>
-        <td><a href="{{ url_for('note_detail', note_id=n.id) }}"><b>{{ n.title }}</b></a></td>
-        <td>{{ subject_name(n.subject_slug) }}</td>
-        <td><span class="type-badge" style="position:static;background:var(--primary);">{{ n.file_type }}</span></td>
-        <td>₹{{ '%g' % n.price }}</td>
-        <td>
-          <form method="post" action="{{ url_for('admin_toggle', note_id=n.id) }}">
-            <button class="btn btn-sm {{ 'btn-warn' if n.featured else 'btn-ghost' }}">
-              {{ '⭐ Featured' if n.featured else '☆ Feature' }}
-            </button>
-          </form>
-        </td>
-        <td>
-          <a href="{{ url_for('note_detail', note_id=n.id) }}" class="btn btn-sm btn-ghost">View</a>
-          <form method="post" action="{{ url_for('admin_delete', note_id=n.id) }}" style="display:inline;"
-                onsubmit="return confirm('Confirm: \\'{{ n.title }}\\' delete karein?');">
-            <button class="btn btn-sm btn-danger">🗑️</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7" style="text-align:center; padding:30px;">Abhi koi notes nahi hain. <a href="{{ url_for('admin_upload') }}">Pehla note upload karein →</a></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <!-- Subject-wise files -->
+  {% for slug, items in by_subject.items() %}
+    <div class="section-title" id="sub-{{ slug }}" style="margin-top:40px;">
+      <div class="tag">Subject</div>
+      <h2>{{ subject_emoji(slug) }} {{ subject_name(slug) }} <span style="font-size:16px;color:var(--muted);font-weight:400">({{ items|selectattr('__meta__','undefined')|list|length }} files)</span></h2>
+    </div>
+    <table class="admin-table">
+      <thead>
+        <tr><th>#</th><th>Title</th><th>Type</th><th style="width:180px;">Actions</th></tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(c=0) %}
+        {% for n in items %}
+          {% if n.__meta__ is defined %}
+          {% else %}
+            {% set ns.c = ns.c + 1 %}
+            <tr>
+              <td>{{ ns.c }}</td>
+              <td><b>{{ n.title }}</b></td>
+              <td><span class="type-badge" style="position:static;background:var(--emerald);">{{ n.file_type }}</span></td>
+              <td>
+                <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-sm btn-ghost" target="_blank">👁️ Open</a>
+                <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-sm btn-gold">⬇️ Free</a>
+                <form method="post" action="{{ url_for('admin_delete', note_id=n.id) }}" style="display:inline;"
+                      onsubmit="return confirm('Delete \\'{{ n.title }}\\'?');">
+                  <button class="btn btn-sm btn-danger">🗑️</button>
+                </form>
+              </td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+
 </div>
 {% endblock %}
 """,
@@ -1104,12 +1106,19 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
   </div>
   <div class="subject-grid">
     {% for s in subject_counts %}
-      <a class="subject-card" href="{{ url_for('subject_page', slug=s.slug) }}">
-        <span class="emoji">{{ subject_emoji(s.slug) }}</span>
-        <span class="name">{{ s.name }}</span>
-        <span class="count">{{ s.hindi }} · {{ s.cnt }} notes</span>
-        <span class="exam-tag">📝 Prelims + Mains</span>
-      </a>
+      <div class="subject-card">
+        <a href="{{ url_for('subject_page', slug=s.slug) }}">
+          <span class="emoji">{{ subject_emoji(s.slug) }}</span>
+          <span class="name">{{ s.name }}</span>
+          <span class="count">{{ s.hindi }} · {{ s.cnt }} notes</span>
+          <span class="exam-tag">📝 Prelims + Mains</span>
+        </a>
+        {% if s.bundle_id and s.bundle_price > 0 %}
+          <a href="{{ url_for('buy_note', note_id=s.bundle_id) }}" class="btn btn-gold" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🛒 Buy ₹{{ '%g' % s.bundle_price }}</a>
+        {% else %}
+          <a href="{{ url_for('subject_page', slug=s.slug) }}" class="btn btn-ghost" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🗂️ Open</a>
+        {% endif %}
+      </div>
     {% endfor %}
   </div>
 
@@ -1163,18 +1172,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     </div>
   {% endif %}
 
-  <!-- Recent -->
-  <div class="section-title">
-    <div class="tag">Fresh</div>
-    <h2>Recently <em>Added</em></h2>
-    <p>Sabse nayi uploads.</p>
-  </div>
-  <div class="note-grid">
-    {% for n in recent %}
-      {% include "_note_card.html" %}
-    {% endfor %}
-  </div>
-
   <!-- CTA -->
   <div class="cta-banner">
     <h2>Unlock Your Full Potential</h2>
@@ -1219,16 +1216,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     })();
   </script>
 
-  {% if not recent %}
-    <div class="card" style="text-align:center; padding:40px;">
-      <div style="font-size:50px;">📭</div>
-      <h3>Abhi koi notes nahi hain</h3>
-      <p>Admin abhi notes upload karega.</p>
-      {% if is_admin %}
-        <a href="{{ url_for('admin_upload') }}" class="btn btn-green">+ Pehla Note Upload Karein</a>
-      {% endif %}
-    </div>
-  {% endif %}
 
 </div>
 {% endblock %}
@@ -1580,15 +1567,32 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     <div class="section-title" style="margin-top:24px;">
       <div class="tag">Sub-Parts</div>
       <h2>🗂️ {{ subject.name }} ke Bhag</h2>
-      <p>Neeche ke parts mein click karke notes dekhein.</p>
+      <p>Har part ko alag se buy ya preview karein.</p>
     </div>
-    <div class="subject-grid">
+    <div class="note-grid">
       {% for c in children %}
-        <a class="subject-card" href="{{ url_for('subject_page', slug=c.slug) }}">
-          <span class="emoji">{{ subject_emoji(c.slug) }}</span>
-          <span class="name">{{ c.name }}</span>
-          <span class="count">{{ c.hindi }} · {{ c.count }} notes</span>
-        </a>
+        <div class="note-card">
+          <div class="note-thumb"><span style="font-size:50px;">{{ subject_emoji(c.slug) }}</span></div>
+          <div class="note-body">
+            <span class="subject-tag">{{ subject_emoji(c.slug) }} {{ c.name }}</span>
+            <h3><a href="{{ url_for('subject_page', slug=c.slug) }}">{{ c.name }}</a></h3>
+            <p class="note-desc">{{ c.hindi }} · {{ c.count }} files</p>
+            {% if c.price and c.price > 0 %}
+              <div class="price-row">
+                <span class="price">₹{{ '%g' % c.price }}</span>
+                {% if c.orig_price and c.orig_price > c.price %}<span class="orig-price">₹{{ '%g' % c.orig_price }}</span>{% endif %}
+              </div>
+            {% endif %}
+            <div class="note-actions">
+              {% if c.bundle_id %}
+                <a href="{{ url_for('note_view', note_id=c.bundle_id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+                <a href="{{ url_for('buy_note', note_id=c.bundle_id) }}" class="btn btn-primary">🛒 Buy</a>
+              {% else %}
+                <a href="{{ url_for('subject_page', slug=c.slug) }}" class="btn btn-ghost">🗂️ Open</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
       {% endfor %}
     </div>
   {% endif %}

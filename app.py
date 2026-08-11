@@ -434,12 +434,20 @@ def index():
     ).fetchall()
     total_notes = conn.execute("SELECT COUNT(*) AS c FROM notes").fetchone()["c"]
     bundle_count = conn.execute("SELECT COUNT(*) AS c FROM notes WHERE featured=1").fetchone()["c"]
-    conn.close()
-    # Geography ke parts ko home grid se chhupao (wo Geography ke andar dikhenge)
+    # Geography/History ke parts ko home grid se chhupao (wo parent ke andar dikhenge)
     child_slugs = set()
     for children in CHILD_SUBJECTS.values():
         child_slugs.update(children)
     subject_counts = [dict(r) for r in subject_counts if r["slug"] not in child_slugs and r["slug"] != "geography-optional"]
+    # har subject ka bundle (price + id) add karo — Buy button ke liye (conn close se PEHLE)
+    for sc in subject_counts:
+        b = conn.execute(
+            "SELECT id, price, original_price FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' LIMIT 1",
+            (sc["slug"],)).fetchone()
+        sc["bundle_id"] = b["id"] if b else None
+        sc["bundle_price"] = b["price"] if b else 0
+        sc["bundle_orig"] = b["original_price"] if b else 0
+    conn.close()
     return render_template(
         "index.html",
         featured=[dict(n) for n in featured],
@@ -499,7 +507,7 @@ def subject_page(slug):
         "SELECT * FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' ORDER BY created_at DESC",
         (slug,),
     ).fetchall()
-    # child subjects (sub-parts) fetch karo
+    # child subjects (sub-parts) fetch karo — har part ki bundle/price info ke saath
     children = []
     for cslug in CHILD_SUBJECTS.get(slug, []):
         c = get_subject(cslug)
@@ -507,6 +515,13 @@ def subject_page(slug):
             c_count = conn.execute("SELECT COUNT(*) AS c FROM notes WHERE subject_slug=?", (cslug,)).fetchone()["c"]
             c = dict(c)
             c["count"] = c_count
+            # part ka bundle (agar hai) — price + preview/buy ke liye
+            part_bundle = conn.execute(
+                "SELECT id, price, original_price FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' LIMIT 1",
+                (cslug,)).fetchone()
+            c["bundle_id"] = part_bundle["id"] if part_bundle else None
+            c["price"] = part_bundle["price"] if part_bundle else 0
+            c["orig_price"] = part_bundle["original_price"] if part_bundle else 0
             children.append(c)
     conn.close()
     return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children)
@@ -940,12 +955,23 @@ def admin_dashboard():
     for f in (PDF_FOLDER, HTML_FOLDER):
         total_files += len([x for x in os.listdir(f) if not x.startswith('.')])
     conn.close()
+    # Subject-wise grouping: har subject ke notes serial mein (id order)
+    by_subject = {}
+    for n in notes:
+        n = dict(n)
+        by_subject.setdefault(n["subject_slug"], []).append(n)
+    # subject slug ke saath name/emoji
+    for s in dict(by_subject):
+        subj = get_subject(s)
+        if subj:
+            by_subject[s].insert(0, {"__meta__": True, "name": subj["name"], "hindi": subj["hindi"], "slug": s})
     return render_template(
         "admin_dashboard.html",
         notes=[dict(n) for n in notes],
         counts=[dict(c) for c in counts],
         total_notes=total_notes,
         total_files=total_files,
+        by_subject=by_subject,
         ADMIN_USERNAME=ADMIN_USERNAME,
     )
 
