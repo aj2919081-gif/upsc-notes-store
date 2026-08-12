@@ -397,6 +397,14 @@ TEMPLATES = {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
   <meta name="description" content="{{ SITE_TAGLINE }}">
+  <meta name="keywords" content="UPSC notes, UPSC study material, UPSC cheat sheets, IAS notes, geography notes UPSC, polity notes, economics notes, history notes, UPSC prelims, UPSC mains, BPSC notes, State PCS notes, free UPSC notes">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="{{ SITE_NAME }}">
+  <meta property="og:title" content="{{ SITE_NAME }}">
+  <meta property="og:description" content="{{ SITE_TAGLINE }}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="canonical" href="{{ request.url }}">
   <style>
   /* ============================================================
    UPSC Notes Store — PREMIUM EDITION

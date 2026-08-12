@@ -838,6 +838,30 @@ def buy_success(note_id):
     return render_template("buy_success.html", note=note, payment_id=request.args.get("payment_id"))
 
 
+@app.route("/robots.txt")
+def robots_txt():
+    content = "User-agent: *\nAllow: /\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\n"
+    return Response(content, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    conn = get_db()
+    urls = [request.url_root.rstrip("/") + "/"]
+    for r in conn.execute("SELECT id FROM notes"):
+        urls.append(f"{request.url_root.rstrip('/')}/note/{r['id']}")
+    for r in conn.execute("SELECT slug FROM subjects"):
+        urls.append(f"{request.url_root.rstrip('/')}/subject/{r['slug']}")
+    conn.close()
+    from datetime import datetime as dt
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        xml.append(f'<url><loc>{u}</loc><lastmod>{dt.now().strftime("%Y-%m-%d")}</lastmod><changefreq>weekly</changefreq></url>')
+    xml.append('</urlset>')
+    return Response("\n".join(xml), mimetype="application/xml")
+
+
 @app.route("/about")
 def about():
     return render_template("about.html")
