@@ -522,6 +522,11 @@ def subject_page(slug):
             c["bundle_id"] = part_bundle["id"] if part_bundle else None
             c["price"] = part_bundle["price"] if part_bundle else 0
             c["orig_price"] = part_bundle["original_price"] if part_bundle else 0
+            # part ki pehli file id — preview click par seedhi HTML file khule
+            first_file = conn.execute(
+                "SELECT id FROM notes WHERE subject_slug=? AND title NOT LIKE '%Complete Bundle%' ORDER BY id LIMIT 1",
+                (cslug,)).fetchone()
+            c["first_file_id"] = first_file["id"] if first_file else None
             children.append(c)
     conn.close()
     return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children)

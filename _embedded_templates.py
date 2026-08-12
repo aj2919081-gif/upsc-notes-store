@@ -1587,8 +1587,12 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
               </div>
             {% endif %}
             <div class="note-actions">
-              {% if c.bundle_id %}
+              {% if c.first_file_id %}
+                <a href="{{ url_for('note_view', note_id=c.first_file_id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+              {% elif c.bundle_id %}
                 <a href="{{ url_for('note_view', note_id=c.bundle_id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
+              {% endif %}
+              {% if c.bundle_id %}
                 <a href="{{ url_for('buy_note', note_id=c.bundle_id) }}" class="btn btn-primary">🛒 Buy</a>
               {% else %}
                 <a href="{{ url_for('subject_page', slug=c.slug) }}" class="btn btn-ghost">🗂️ Open</a>
