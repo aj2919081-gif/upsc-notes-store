@@ -855,7 +855,7 @@ def contact():
 # ============================================================
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    next_url = request.args.get("next") or request.form.get("next") or url_for("user_dashboard")
+    next_url = request.args.get("next") or request.form.get("next") or url_for("index")
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -892,7 +892,7 @@ def signup():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    next_url = request.args.get("next") or request.form.get("next") or url_for("user_dashboard")
+    next_url = request.args.get("next") or request.form.get("next") or url_for("index")
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
