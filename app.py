@@ -729,6 +729,9 @@ def download_note(note_id):
 
 @app.route("/buy/<int:note_id>")
 def buy_note(note_id):
+    # Buy karne ke liye user ko login/signup karna padega (purchase account mein save hota hai)
+    if not session.get("user_id"):
+        return redirect(url_for("login", next=url_for("buy_note", note_id=note_id)))
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
@@ -852,6 +855,7 @@ def contact():
 # ============================================================
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
+    next_url = request.args.get("next") or request.form.get("next") or url_for("user_dashboard")
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -859,19 +863,19 @@ def signup():
         confirm = request.form.get("confirm", "")
         if not name or not email or not password:
             flash("Naam, email aur password sab zaroori hai.", "error")
-            return redirect(url_for("signup"))
+            return redirect(url_for("signup", next=next_url))
         if password != confirm:
             flash("Password aur confirm password match nahi karte.", "error")
-            return redirect(url_for("signup"))
+            return redirect(url_for("signup", next=next_url))
         if len(password) < 4:
             flash("Password kam se kam 4 characters ka rakhein.", "error")
-            return redirect(url_for("signup"))
+            return redirect(url_for("signup", next=next_url))
         conn = get_db()
         exists = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
         if exists:
             conn.close()
             flash("Is email se account pehle se hai. Login karein.", "error")
-            return redirect(url_for("login"))
+            return redirect(url_for("login", next=next_url))
         conn.execute(
             "INSERT INTO users (name, email, password_hash, created_at) VALUES (?,?,?,?)",
             (name, email, generate_password_hash(password), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
@@ -882,12 +886,13 @@ def signup():
         session["user_id"] = user["id"]
         session["user_name"] = user["name"]
         flash(f"Welcome, {name}! 🎉 Account ban gaya.", "success")
-        return redirect(url_for("user_dashboard"))
-    return render_template("signup.html")
+        return redirect(next_url)
+    return render_template("signup.html", next_url=next_url)
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    next_url = request.args.get("next") or request.form.get("next") or url_for("user_dashboard")
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -898,9 +903,9 @@ def login():
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
             flash(f"Welcome back, {user['name']}! 👋", "success")
-            return redirect(url_for("user_dashboard"))
+            return redirect(next_url)
         flash("Galat email ya password!", "error")
-    return render_template("login.html")
+    return render_template("login.html", next_url=next_url)
 
 
 @app.route("/logout")

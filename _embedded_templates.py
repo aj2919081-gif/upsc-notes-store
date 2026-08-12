@@ -1276,6 +1276,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); margin:0; font-size:14px;">Apne account se login karein.</p>
     </div>
     <form method="POST">
+      <input type="hidden" name="next" value="{{ next_url }}">
       <div class="form-group">
         <label>Email</label>
         <input type="email" name="email" required placeholder="you@example.com">
@@ -1531,6 +1532,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); margin:0; font-size:14px;">Notes kharidne ke liye account banao.</p>
     </div>
     <form method="POST">
+      <input type="hidden" name="next" value="{{ next_url }}">
       <div class="form-group">
         <label>Apna Naam</label>
         <input type="text" name="name" required placeholder="e.g. Rahul Kumar">
