@@ -171,6 +171,7 @@ TEMPLATES = {
   <div class="toolbar">
     <a href="{{ url_for('admin_upload') }}" class="btn btn-primary">➕ Naya Note Upload</a>
     <a href="{{ url_for('admin_subjects') }}" class="btn btn-ghost">🗂️ Manage Subjects</a>
+    <a href="{{ url_for('admin_purchase') }}" class="btn btn-gold">🎟️ User Ko Purchase Access</a>
   </div>
 
   <!-- Subjects ki list (clickable) -->
@@ -254,6 +255,40 @@ TEMPLATES = {
     <p style="text-align:center; font-size:13px; color:var(--muted); margin-top:14px;">
       Username: <b>admin</b><br>(Password aapne set kiya hai — app.py mein change kar sakte hain)
     </p>
+  </div>
+</div>
+{% endblock %}
+""",
+    'admin_purchase.html': """{% extends "base.html" %}
+{% block title %}Add Purchase — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="section-title">
+    <h2>🎟️ User Ko Purchase Access Denein</h2>
+    <p>UPI/manual payment confirm hone par user ka email + bundle select karke access dein.</p>
+  </div>
+
+  <div class="card" style="max-width:560px;">
+    <form method="POST">
+      <div class="form-group">
+        <label>User ka Email</label>
+        <input type="email" name="email" required placeholder="customer@example.com">
+      </div>
+      <div class="form-group">
+        <label>Bundle</label>
+        <select name="bundle_id" required>
+          {% for b in bundles %}
+            <option value="{{ b.id }}">{{ b.title }} — ₹{{ '%g' % b.price }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">✅ Access Denein</button>
+    </form>
+  </div>
+
+  <div style="margin-top:20px;">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Dashboard</a>
   </div>
 </div>
 {% endblock %}
@@ -739,6 +774,32 @@ header.site {
 }
 .cta-banner p { opacity: .9; max-width: 540px; margin: 0 auto 26px; position: relative; font-weight: 300; }
 
+/* ===== TRUST / MINDSET SECTION ===== */
+.trust-section { margin: 56px 0; text-align: center; }
+.trust-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: linear-gradient(90deg, var(--emerald), var(--emerald-dark));
+  color: #fff; padding: 12px 26px; border-radius: 40px; font-weight: 800; font-size: 20px;
+  box-shadow: 0 0 24px rgba(108,43,217,.4), 0 0 60px rgba(108,43,217,.15);
+}
+.trust-badge .tnum { font-size: 28px; }
+.trust-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 20px; margin: 34px 0; }
+.trust-card {
+  background: var(--white); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 30px 18px; box-shadow: var(--shadow-sm); transition: .2s;
+}
+.trust-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: rgba(201,162,39,.5); }
+.trust-card .ico { font-size: 40px; margin-bottom: 10px; }
+.trust-card .num { font-size: 34px; font-weight: 800; color: var(--emerald); }
+.trust-card .lbl { color: var(--muted); font-size: 15px; margin-top: 4px; }
+.trust-quote {
+  background: var(--grad-emerald); border-radius: var(--radius); padding: 34px 28px;
+  color: #fff; position: relative; overflow: hidden; margin-top: 24px;
+}
+.trust-quote::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 20%, rgba(246,210,80,.2), transparent 50%); }
+.trust-quote p { font-size: 22px; font-weight: 700; font-style: italic; position: relative; margin: 0 auto 10px; max-width: 720px; }
+.trust-quote .by { font-size: 14px; color: var(--gold-light); position: relative; letter-spacing: 1px; }
+
 /* ===== Cards ===== */
 .card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow-sm); }
 
@@ -846,7 +907,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
   <header class="site">
     <div class="container navbar">
       <a href="{{ url_for('index') }}" class="brand">
-        <div class="brand-logo">U</div>
+        <img src="{{ url_for('static', filename='aw-logo.png') }}" alt="{{ SITE_NAME }}" style="width:46px;height:46px;border-radius:12px;object-fit:cover;">
         <div>
           <div class="brand-name">UPSC<span>Notes</span></div>
           <div class="brand-tag">{{ SITE_TAGLINE }}</div>
@@ -932,7 +993,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         </div>
       </div>
       <div class="copy">&#169; {{ now_year() }} {{ SITE_NAME }} &#8212; Sabhi adhikaar surakshit.
-        <br><span style="color:#e6c25c;font-weight:700;letter-spacing:1px;">&#9889; Powered by ANUJ THE HACKER &#9889;</span>
+        <br><span style="color:#e6c25c;font-weight:700;letter-spacing:1px;">&#9889; Powered by ANUJ IAS ASPIRANT &#9889;</span>
       </div>
     </div>
   </footer>
@@ -1167,6 +1228,22 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     <div class="feature-card"><div class="ico">🎯</div><h3>Exam-Focused</h3><p>Prelims + Mains</p></div>
     <div class="feature-card"><div class="ico">💳</div><h3>Secure UPI</h3><p>QR scan karke</p></div>
     <div class="feature-card"><div class="ico">⚡</div><h3>Instant Access</h3><p>Turant delivery</p></div>
+  </div>
+
+  <!-- TRUST / MINDSET -->
+  <div class="trust-section">
+    <div class="trust-badge">👥 <span class="tnum">5 Lakh+</span> Trusted Students</div>
+    <p style="color:var(--muted); max-width:620px; margin:14px auto;">UPSC aspirants ka apna parivaar — jo hum par bharosa karke apne sapne poore kar rahe hain.</p>
+    <div class="trust-stats">
+      <div class="trust-card"><div class="ico">🎯</div><div class="num">5L+</div><div class="lbl">Trusted Students</div></div>
+      <div class="trust-card"><div class="ico">📚</div><div class="num">365+</div><div class="lbl">Premium Notes</div></div>
+      <div class="trust-card"><div class="ico">🏅</div><div class="num">99%</div><div class="lbl">Success Rate</div></div>
+      <div class="trust-card"><div class="ico">⭐</div><div class="num">4.9/5</div><div class="lbl">Student Rating</div></div>
+    </div>
+    <div class="trust-quote">
+      <p>"Sapne dekhne se nahi, sapno par bharosa rakhne se pure hote hain. Hamare 5 lakh+ students ka bharosa hi hamari asli kamai hai."</p>
+      <div class="by">✨ ANUJ IAS ASPIRANT ✨</div>
+    </div>
   </div>
 
   <!-- Featured -->

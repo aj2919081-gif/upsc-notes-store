@@ -117,7 +117,7 @@ UPI_ID = os.environ.get("UPI_ID", "9569431430@ybl")
 UPI_QR_FILENAME = "qr.png"           # uploads/upi/qr.png mein rakhin
 SELLER_PHONE = os.environ.get("SELLER_PHONE", "+91-9569431430")
 SELLER_WHATSAPP = os.environ.get("SELLER_WHATSAPP", "+919569431430")
-SELLER_EMAIL = os.environ.get("SELLER_EMAIL", "as5093220@gmail.com")
+SELLER_EMAIL = os.environ.get("SELLER_EMAIL", "aj2919081@gmail.com")
 
 # Razorpay (Test Mode abhi)
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_TO7y62j31VXybk")
@@ -838,6 +838,14 @@ def buy_success(note_id):
     return render_template("buy_success.html", note=note, payment_id=request.args.get("payment_id"))
 
 
+@app.route("/google33ceddf537433e15.html")
+def google_verify():
+    return Response(
+        "google-site-verification: google33ceddf537433e15.html",
+        mimetype="text/html",
+    )
+
+
 @app.route("/robots.txt")
 def robots_txt():
     content = "User-agent: *\nAllow: /\nSitemap: " + request.url_root.rstrip("/") + "/sitemap.xml\n"
@@ -1067,6 +1075,32 @@ def admin_upload():
         return redirect(url_for("admin_dashboard"))
 
     return render_template("admin_upload.html", subjects=get_subjects())
+
+
+@app.route("/admin/purchase", methods=["GET", "POST"])
+@login_required
+def admin_purchase():
+    """UPI/manual payment confirm hone par user ko bundle access dene ke liye."""
+    conn = get_db()
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        bundle_id = request.form.get("bundle_id", "")
+        user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and bundle_id:
+            exists = conn.execute("SELECT id FROM purchases WHERE user_id=? AND bundle_id=?",
+                                  (user["id"], bundle_id)).fetchone()
+            if not exists:
+                conn.execute("INSERT INTO purchases (user_id,bundle_id,email,created_at) VALUES (?,?,?,?)",
+                             (user["id"], bundle_id, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
+                flash(f"Purchase add ho gaya — {user['name']} ko bundle {bundle_id} ka access!", "success")
+            else:
+                flash("Ye purchase pehle se hai.", "info")
+        else:
+            flash("Email ya bundle galat hai.", "error")
+    bundles = conn.execute("SELECT id,title,price FROM notes WHERE title LIKE '%Complete Bundle%' ORDER BY id").fetchall()
+    conn.close()
+    return render_template("admin_purchase.html", bundles=[dict(b) for b in bundles])
 
 
 @app.route("/admin/note/<int:note_id>/delete", methods=["POST"])
