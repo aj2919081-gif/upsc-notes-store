@@ -316,6 +316,48 @@ def clean_note_html(content):
     return content
 
 
+MOBILE_RESPONSIVE_CSS = (
+    "html,body{max-width:100% !important;width:100% !important;margin:0 auto !important;}"
+    "body{word-wrap:break-word !important;overflow-wrap:break-word !important;"
+    "padding:12px !important;box-sizing:border-box !important;font-size:16px !important;}"
+    "img{max-width:100% !important;height:auto !important;}"
+    "table{max-width:100% !important;width:100% !important;table-layout:auto;border-collapse:collapse;}"
+    "table td,table th{padding:6px !important;word-wrap:break-word !important;overflow-wrap:break-word !important;}"
+    "table,tr,td,th{min-width:0 !important;}"
+    ".table-wrap{max-width:100%;overflow-x:auto;}"
+    "pre,code{white-space:pre-wrap !important;word-wrap:break-word !important;}"
+    "h1,h2,h3,h4,h5,p,li,div{word-wrap:break-word;overflow-wrap:break-word;max-width:100%;}"
+    "*{box-sizing:border-box;}"
+)
+
+
+def make_mobile_responsive(content):
+    """Note HTML me viewport meta + mobile-responsive CSS inject karo,
+    taaki mobile pe text scatter na ho / overflow na ho.
+    Agar content mein head na ho toh poora responsive wrapper bana do."""
+    if not content:
+        return content
+    viewport = '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+    style = "<style>%s</style>" % MOBILE_RESPONSIVE_CSS
+    lower = content.lower()
+    if "</head>" in lower:
+        return content.replace(
+            "</head>",
+            viewport + "\n" + style + "\n</head>",
+            1,
+        )
+    if "<head" in lower:
+        # head tag hai par closing nahi — style sabse upar daalo
+        idx = content.lower().find("<head")
+        end = content.find(">", idx) + 1
+        return content[:end] + viewport + style + content[end:]
+    if "<body" in lower:
+        return viewport + style + content
+    # bilkul plain text/none-HTML — wrapper banao
+    return (f"<!DOCTYPE html><html><head>{viewport}{style}</head>"
+            f"<body>{content}</body></html>")
+
+
 def login_required(f):
     from functools import wraps
 
@@ -580,7 +622,9 @@ def note_view(note_id):
                 if cfiles:
                     pf = cfiles[0]
                     import base64
-                    pf["content"] = base64.b64encode((get_note_content(pf) or "").encode("utf-8")).decode()
+                    pf["content"] = base64.b64encode(
+                        (make_mobile_responsive(get_note_content(pf) or "") or "").encode("utf-8")
+                    ).decode()
                     c["preview_file"] = pf
                 else:
                     c["preview_file"] = None
@@ -594,12 +638,13 @@ def note_view(note_id):
         first_content = ""
         import base64
         if topics:
-            first_row = conn.execute("SELECT * FROM notes WHERE id=?", (topics[0]["id"],)).fetchone()
+            first_row = conn.execute("SELECT * FROM notes WHERE id=?",
+                                     (topics[0]["id"],)).fetchone()
             if first_row:
-                raw = get_note_content(dict(first_row)) or ""
+                raw = make_mobile_responsive(get_note_content(dict(first_row)) or "") or ""
                 first_content = base64.b64encode(raw.encode("utf-8")).decode()
         elif child_parts and child_parts[0]["preview_file"]:
-            raw = get_note_content(child_parts[0]["preview_file"]) or ""
+            raw = make_mobile_responsive(get_note_content(child_parts[0]["preview_file"])) or ""
             first_content = base64.b64encode(raw.encode("utf-8")).decode()
         conn.close()
         return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased, child_parts=child_parts)
@@ -618,7 +663,10 @@ def note_view(note_id):
     content = get_note_content(note)
     conn.close()
     if note["file_type"] == "html" and content:
-        return Response(clean_note_html(content), mimetype="text/html")
+        return Response(
+            make_mobile_responsive(clean_note_html(content)) or "",
+            mimetype="text/html",
+        )
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
         abort(404)

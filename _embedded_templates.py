@@ -1519,6 +1519,17 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 {% block title %}Preview — {{ bundle.title }}{% endblock %}
 
 {% block content %}
+<style>
+  /* Mobile par preview clean rakho: topics list content ke NICHE, non-sticky */
+  .preview-topics { position: sticky; top: 90px; max-height: 80vh; overflow: auto; }
+  @media (max-width: 860px) {
+    .detail-wrap { display: flex; flex-direction: column; }
+    .detail-wrap .detail-main { order: 1; }
+    .detail-wrap .preview-topics { order: 2; position: static; max-height: none; overflow: visible; margin-top: 24px; }
+    .preview-topics ol { padding-left: 20px; }
+    iframe { min-height: 480px !important; }
+  }
+</style>
 <div class="container">
   <div class="section-title">
     <h2>👁️ {{ subject_name(bundle.subject_slug) }} — Preview</h2>
@@ -1545,7 +1556,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 
   <div class="detail-wrap">
     <!-- Topics list -->
-    <div class="card" style="position:sticky;top:90px;max-height:80vh;overflow:auto;">
+    <div class="card preview-topics">
       <h3 style="margin-top:0;">📚 {{ subject_name(bundle.subject_slug) }} ke Topics</h3>
       {% if topics %}
       <ol style="padding-left:20px; line-height:2;">
