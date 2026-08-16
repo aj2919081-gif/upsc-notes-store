@@ -116,6 +116,10 @@ SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-this-secret-key-please
 ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "aj-secret-admin-x7q9z2")
 ADMIN_PREFIX = "/" + ADMIN_TOKEN  # e.g. /aj-secret-admin-x7q9z2
 
+# FREE subjects — in subjects ke notes bina login/payment ke sabko free milenge.
+# (jaise PYQs). Yahan aur subjects add kar sakte hain.
+FREE_SUBJECTS = {"pyqs"}
+
 # UPI details for manual payment (buyer aapko contact karega)
 UPI_ID = os.environ.get("UPI_ID", "9569431430@ybl")
 UPI_QR_FILENAME = "qr.png"           # uploads/upi/qr.png mein rakhin
@@ -557,6 +561,12 @@ def subject_page(slug):
         "SELECT * FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' ORDER BY created_at DESC",
         (slug,),
     ).fetchall()
+    # PYQs subject — saare papers year-wise dikhao (individual notes)
+    pyq_notes = []
+    if slug == "pyqs":
+        pyq_notes = [dict(r) for r in conn.execute(
+            "SELECT * FROM notes WHERE subject_slug='pyqs' AND title NOT LIKE '%Complete Bundle%' ORDER BY title"
+        ).fetchall()]
     # child subjects (sub-parts) fetch karo — har part ki bundle/price info ke saath
     children = []
     for cslug in CHILD_SUBJECTS.get(slug, []):
@@ -579,7 +589,11 @@ def subject_page(slug):
             c["first_file_id"] = first_file["id"] if first_file else None
             children.append(c)
     conn.close()
-    return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children)
+    # PYQs papers ko Prelims/Mains me split karo (template me aasan dikhane ke liye)
+    pyq_prelims = [n for n in pyq_notes if "Prelims" in (n["title"] or "")]
+    pyq_mains = [n for n in pyq_notes if "Mains" in (n["title"] or "")]
+    return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children,
+                           pyq_notes=pyq_notes, pyq_prelims=pyq_prelims, pyq_mains=pyq_mains)
 
 
 @app.route("/note/<int:note_id>")
@@ -658,6 +672,9 @@ def note_view(note_id):
         return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased, child_parts=child_parts)
     # Individual → demo ids OR purchased subject ke notes khule
     has_access = session.get("is_admin") or note_id in DEMO_PREVIEW_IDS
+    # FREE subjects — in subjects ke notes bina login/payment ke khulte hain
+    if note["subject_slug"] in FREE_SUBJECTS:
+        has_access = True
     if not has_access and session.get("user_id"):
         # kya user ne is subject ka bundle kharida hai?
         bought = conn.execute(
@@ -755,6 +772,9 @@ def download_note(note_id):
         abort(404)
     note = dict(row)
     has_access = session.get("is_admin")
+    # FREE subjects — in subjects ke notes bina login/payment ke download ho sakte hain
+    if note["subject_slug"] in FREE_SUBJECTS:
+        has_access = True
     if not has_access and session.get("user_id"):
         bought = conn.execute(
             "SELECT id FROM purchases WHERE user_id=? AND bundle_id IN "
@@ -794,6 +814,10 @@ def buy_note(note_id):
     if not row:
         abort(404)
     note = dict(row)
+    is_free = note["subject_slug"] in FREE_SUBJECTS
+    # Agar free note hai toh user ko directly download/view ka option do (payment nahi)
+    if is_free:
+        return redirect(url_for("note_view", note_id=note_id))
     # QR: embedded base64 se data-URI banate hain (file ki zaroorat nahi)
     qr = "data:image/png;base64," + UPI_QR_BASE64
     return render_template(

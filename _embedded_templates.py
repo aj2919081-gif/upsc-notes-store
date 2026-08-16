@@ -34,14 +34,22 @@ TEMPLATES = {
     <h3><a href="{{ url_for('note_detail', note_id=n.id) }}">{{ n.title }}</a></h3>
     <p class="note-desc">{{ n.description[:120] }}{% if n.description|length > 120 %}...{% endif %}</p>
     <div class="price-row">
-      <span class="price">₹{{ '%g' % n.price }}</span>
-      {% if n.original_price and n.original_price > n.price %}<span class="orig-price">₹{{ '%g' % n.original_price }}</span>{% endif %}
+      {% if n.subject_slug == 'pyqs' %}
+        <span class="price free" style="color:var(--emerald);">🆓 Free</span>
+      {% else %}
+        <span class="price">₹{{ '%g' % n.price }}</span>
+        {% if n.original_price and n.original_price > n.price %}<span class="orig-price">₹{{ '%g' % n.original_price }}</span>{% endif %}
+      {% endif %}
     </div>
     <div class="note-actions">
       {% if n.id in demo_preview_ids or 'Complete Bundle' in (n.title or '') %}
         <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-ghost" target="_blank">👁️ Preview</a>
       {% endif %}
-      <a href="{{ url_for('buy_note', note_id=n.id) }}" class="btn btn-primary">🛒 Buy</a>
+      {% if n.subject_slug == 'pyqs' %}
+        <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-green" target="_blank">📖 Open Free</a>
+      {% else %}
+        <a href="{{ url_for('buy_note', note_id=n.id) }}" class="btn btn-primary">🛒 Buy</a>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -1271,10 +1279,12 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
           <span class="count">{{ s.hindi }} · {{ s.cnt }} notes</span>
           <span class="exam-tag">📝 Prelims + Mains</span>
         </a>
-        {% if s.bundle_id and s.bundle_price > 0 %}
-          <a href="{{ url_for('buy_note', note_id=s.bundle_id) }}" class="btn btn-gold" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🛒 Buy ₹{{ '%g' % s.bundle_price }}</a>
+        {% if s.slug == 'pyqs' %}
+          <a href="{{ url_for('subject_page', slug='pyqs') }}" class="btn btn-green" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🆓 Free PYQs</a>
+        {% elif s.bundle_id and s.bundle_price > 0 %}
+          <a href="{{ url_for('buy_note', note_id=s.bundle_id) }}" class="btn btn-gold" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🛒 Buy Now ₹{{ '%g' % s.bundle_price }}</a>
         {% else %}
-          <a href="{{ url_for('subject_page', slug=s.slug) }}" class="btn btn-ghost" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🗂️ Open</a>
+          <a href="{{ url_for('subject_page', slug=s.slug) }}" class="btn btn-gold" style="margin-top:12px;width:100%;padding:10px;font-size:14px;">🛒 Buy Now</a>
         {% endif %}
       </div>
     {% endfor %}
@@ -1284,8 +1294,8 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
   <div class="optional-section">
     <a class="optional-toggle" href="{{ url_for('subject_page', slug='pyqs') }}" style="text-decoration:none;display:block;">
       <span class="opt-emoji">📝</span>
-      <span>Previous Year Questions (PYQs)</span>
-      <span class="opt-hint">🎯 Prelims + Mains PYQs — Click karke dekhein</span>
+      <span>Previous Year Questions (PYQs) — <em style="font-style:normal;color:#16a34a;">100% FREE</em></span>
+      <span class="opt-hint">🎯 Prelims + Mains PYQs — FREE, Click karke dekhein</span>
     </a>
   </div>
 
@@ -1756,8 +1766,64 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
 <div class="container">
   <div class="section-title">
     <h2>{{ subject_emoji(subject.slug) }} {{ subject.name }} Notes <span style="font-size:16px;color:var(--muted);font-weight:400">({{ subject.hindi }})</span></h2>
-    <p>{{ notes|length }} notes is subject mein available.</p>
+    {% if subject.slug == 'pyqs' %}
+      <p><span style="color:#16a34a;font-weight:800;">🆓 100% FREE</span> — PYQs sabke liye bilkul free hain. Bina login ke notes kholo aur download karo!</p>
+    {% else %}
+      <p>{{ notes|length }} notes is subject mein available.</p>
+    {% endif %}
   </div>
+
+  {% if pyq_notes %}
+    <div class="section-title" style="margin-top:24px;">
+      <div class="tag">Free PYQs</div>
+      <h2>📝 UPSC Previous Year Questions</h2>
+      <p>2011 se 2025 tak — sab papers <b style="color:#16a34a;">100% FREE</b>. Click karke kholo.</p>
+    </div>
+
+    {% if pyq_prelims %}
+    <div class="section-title" style="margin-top:30px;text-align:left;">
+      <div class="tag">Prelims</div>
+      <h2 style="font-size:24px;">🎯 UPSC Prelims PYQs</h2>
+    </div>
+    <div class="note-grid">
+      {% for n in pyq_prelims %}
+        <div class="note-card">
+          <div class="note-thumb"><span style="font-size:50px;">📝</span><span class="type-badge" style="position:static;background:#16a34a;">FREE</span></div>
+          <div class="note-body">
+            <span class="subject-tag">PYQs · Prelims</span>
+            <h3><a href="{{ url_for('note_view', note_id=n.id) }}" target="_blank">{{ n.title }}</a></h3>
+            <div class="note-actions">
+              <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-green" target="_blank" style="flex:1;text-align:center;">📖 Open Free</a>
+              <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-gold" style="flex:1;text-align:center;">⬇️ PDF</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if pyq_mains %}
+    <div class="section-title" style="margin-top:40px;text-align:left;">
+      <div class="tag">Mains</div>
+      <h2 style="font-size:24px;">✍️ UPSC Mains PYQs</h2>
+    </div>
+    <div class="note-grid">
+      {% for n in pyq_mains %}
+        <div class="note-card">
+          <div class="note-thumb"><span style="font-size:50px;">✍️</span><span class="type-badge" style="position:static;background:#16a34a;">FREE</span></div>
+          <div class="note-body">
+            <span class="subject-tag">PYQs · Mains</span>
+            <h3><a href="{{ url_for('note_view', note_id=n.id) }}" target="_blank">{{ n.title }}</a></h3>
+            <div class="note-actions">
+              <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-green" target="_blank" style="flex:1;text-align:center;">📖 Open Free</a>
+              <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-gold" style="flex:1;text-align:center;">⬇️ PDF</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
 
   {% if children %}
     <div class="section-title" style="margin-top:24px;">
