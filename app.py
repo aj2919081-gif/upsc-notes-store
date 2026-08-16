@@ -147,6 +147,7 @@ DEFAULT_SUBJECTS = [
     {"slug": "csat", "name": "CSAT", "hindi": "सीसैट"},
     {"slug": "prelims", "name": "Prelims", "hindi": "प्रारंभिक"},
     {"slug": "mains", "name": "Mains Answer Writing", "hindi": "मुख्य परीक्षा"},
+    {"slug": "pyqs", "name": "PYQs", "hindi": "पिछले वर्ष प्रश्न"},
     {"slug": "other", "name": "Other", "hindi": "अन्य"},
 ]
 
@@ -378,7 +379,7 @@ SUBJECT_EMOJI = {
     "science-tech": "🔬", "environment": "🌿", "art-culture": "🎭",
     "current-affairs": "📰", "ethics": "⚖️", "ir": "🌐",
     "internal-security": "🛡️", "indian-society": "👥", "csat": "🧮",
-    "prelims": "🎯", "mains": "✍️", "other": "📚",
+    "prelims": "🎯", "mains": "✍️", "other": "📚", "pyqs": "📝",
     "geomorphology": "⛰️", "climatology": "🌦️", "oceanography": "🌊",
     "indian-physiography": "🏞️", "mapping": "🗺️",
     "geography-optional": "🗺️",
@@ -484,7 +485,10 @@ def index():
     child_slugs = set()
     for children in CHILD_SUBJECTS.values():
         child_slugs.update(children)
-    subject_counts = [dict(r) for r in subject_counts if r["slug"] not in child_slugs and r["slug"] != "geography-optional"]
+    # Home grid se chhupao: parts, optional, aur prelims/mains/other (PYQs section alag dikhega)
+    hidden_slugs = {"geography-optional", "prelims", "mains", "other"}
+    subject_counts = [dict(r) for r in subject_counts
+                      if r["slug"] not in child_slugs and r["slug"] not in hidden_slugs]
     # har subject ka bundle (price + id) add karo — Buy button ke liye (conn close se PEHLE)
     for sc in subject_counts:
         b = conn.execute(

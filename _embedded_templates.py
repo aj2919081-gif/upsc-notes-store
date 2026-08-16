@@ -1280,6 +1280,15 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
     {% endfor %}
   </div>
 
+  <!-- PYQs SECTION -->
+  <div class="optional-section">
+    <a class="optional-toggle" href="{{ url_for('subject_page', slug='pyqs') }}" style="text-decoration:none;display:block;">
+      <span class="opt-emoji">📝</span>
+      <span>Previous Year Questions (PYQs)</span>
+      <span class="opt-hint">🎯 Prelims + Mains PYQs — Click karke dekhein</span>
+    </a>
+  </div>
+
   <!-- UPSC OPTIONAL -->
   <div class="optional-section">
     <button class="optional-toggle" id="optionalToggle" onclick="toggleOptional()">
