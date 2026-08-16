@@ -111,6 +111,10 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 # Password — environment variable se, warna default. Render par env variable set karein!
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "aj521900")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-this-secret-key-please-123")
+# Admin panel ka SECRET URL path — sirf aapko pata hoga.
+# Change kar sakte hain. Render par env variable ADMIN_TOKEN set karein.
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "aj-secret-admin-x7q9z2")
+ADMIN_PREFIX = "/" + ADMIN_TOKEN  # e.g. /aj-secret-admin-x7q9z2
 
 # UPI details for manual payment (buyer aapko contact karega)
 UPI_ID = os.environ.get("UPI_ID", "9569431430@ybl")
@@ -918,6 +922,55 @@ def sitemap_xml():
     return Response("\n".join(xml), mimetype="application/xml")
 
 
+@app.route("/manifest.json")
+def admin_manifest():
+    """PWA manifest — admin app ko phone pe install karne ke liye."""
+    data = {
+        "name": "ANUJ Admin — UPSC Notes Store",
+        "short_name": "ANUJ Admin",
+        "description": "Admin app for ANUJ IAS ASPIRANT",
+        "start_url": ADMIN_PREFIX + "/",
+        "scope": ADMIN_PREFIX + "/",
+        "display": "standalone",
+        "orientation": "portrait",
+        "background_color": "#2d0d66",
+        "theme_color": "#2d0d66",
+        "icons": [
+            {"src": url_for("static", filename="aw-logo-192.png"),
+             "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": url_for("static", filename="aw-logo-512.png"),
+             "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ],
+    }
+    import json
+    return Response(json.dumps(data), mimetype="application/manifest+json")
+
+
+@app.route("/service-worker.js")
+def admin_sw():
+    """Simple service worker — admin app offline-cache ke liye."""
+    scope = ADMIN_PREFIX + "/"
+    js = (
+        "const CACHE='anuj-admin-v1';\n"
+        "const SCOPE='" + scope + "';\n"
+        "self.addEventListener('install',e=>{self.skipWaiting();});\n"
+        "self.addEventListener('activate',e=>{e.waitUntil(clients.claim());});\n"
+        "self.addEventListener('fetch',e=>{\n"
+        "  const req=e.request;\n"
+        "  if(req.method!=='GET')return;\n"
+        "  const url=new URL(req.url);\n"
+        "  if(url.pathname.startsWith(SCOPE) || url.pathname.includes('/static/')){\n"
+        "    e.respondWith(fetch(req).then(res=>{\n"
+        "      const copy=res.clone();\n"
+        "      caches.open(CACHE).then(c=>c.put(req,copy));\n"
+        "      return res;\n"
+        "    }).catch(()=>caches.match(req)));\n"
+        "  }\n"
+        "});\n"
+    )
+    return Response(js, mimetype="application/javascript")
+
+
 @app.route("/about")
 def about():
     return render_template("about.html")
@@ -1009,7 +1062,7 @@ def user_dashboard():
 # ============================================================
 # ADMIN ROUTES
 # ============================================================
-@app.route("/admin/login", methods=["GET", "POST"])
+@app.route(ADMIN_PREFIX + "/login", methods=["GET", "POST"])
 def admin_login():
     next_url = request.args.get("next") or url_for("admin_dashboard")
     if request.method == "POST":
@@ -1023,14 +1076,14 @@ def admin_login():
     return render_template("admin_login.html")
 
 
-@app.route("/admin/logout")
+@app.route(ADMIN_PREFIX + "/logout")
 def admin_logout():
     session.pop("is_admin", None)
     flash("Aap logout ho gaye hain.", "info")
     return redirect(url_for("index"))
 
 
-@app.route("/admin")
+@app.route(ADMIN_PREFIX)
 @login_required
 def admin_dashboard():
     conn = get_db()
@@ -1066,7 +1119,7 @@ def admin_dashboard():
     )
 
 
-@app.route("/admin/upload", methods=["GET", "POST"])
+@app.route(ADMIN_PREFIX + "/upload", methods=["GET", "POST"])
 @login_required
 def admin_upload():
     if request.method == "POST":
@@ -1125,7 +1178,7 @@ def admin_upload():
     return render_template("admin_upload.html", subjects=get_subjects())
 
 
-@app.route("/admin/purchase", methods=["GET", "POST"])
+@app.route(ADMIN_PREFIX + "/purchase", methods=["GET", "POST"])
 @login_required
 def admin_purchase():
     """UPI/manual payment confirm hone par user ko bundle access dene ke liye."""
@@ -1151,7 +1204,7 @@ def admin_purchase():
     return render_template("admin_purchase.html", bundles=[dict(b) for b in bundles])
 
 
-@app.route("/admin/note/<int:note_id>/delete", methods=["POST"])
+@app.route(ADMIN_PREFIX + "/note/<int:note_id>/delete", methods=["POST"])
 @login_required
 def admin_delete(note_id):
     conn = get_db()
@@ -1171,7 +1224,7 @@ def admin_delete(note_id):
     return redirect(url_for("admin_dashboard"))
 
 
-@app.route("/admin/note/<int:note_id>/toggle", methods=["POST"])
+@app.route(ADMIN_PREFIX + "/note/<int:note_id>/toggle", methods=["POST"])
 @login_required
 def admin_toggle(note_id):
     conn = get_db()
@@ -1184,7 +1237,7 @@ def admin_toggle(note_id):
     return redirect(request.referrer or url_for("admin_dashboard"))
 
 
-@app.route("/admin/subjects", methods=["GET", "POST"])
+@app.route(ADMIN_PREFIX + "/subjects", methods=["GET", "POST"])
 @login_required
 def admin_subjects():
     if request.method == "POST":
@@ -1242,6 +1295,6 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"  {SITE_NAME} chal raha hai!")
     print(f"  Storefront: http://127.0.0.1:5000")
-    print(f"  Admin URL:  http://127.0.0.1:5000/admin/login")
+    print(f"  Admin (secret): http://127.0.0.1:5000{ADMIN_PREFIX}/login")
     print("=" * 60)
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

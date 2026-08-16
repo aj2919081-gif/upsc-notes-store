@@ -153,93 +153,220 @@ TEMPLATES = {
 </div>
 {% endblock %}
 """,
-    'admin_dashboard.html': """{% extends "base.html" %}
-{% block title %}Admin Dashboard — {{ SITE_NAME }}{% endblock %}
+    'admin_base.html': """<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}ANUJ Admin{% endblock %}</title>
+  <meta name="description" content="Admin App — ANUJ IAS ASPIRANT">
+  <meta name="robots" content="noindex, nofollow">
+  <!-- PWA -->
+  <link rel="manifest" href="{{ url_for('admin_manifest') }}">
+  <meta name="theme-color" content="#2d0d66">
+  <link rel="icon" href="{{ url_for('static', filename='aw-logo-192.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='aw-logo-192.png') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root{
+      --purple:#6c2bd9; --purple-dark:#4b1a9e; --deep:#2d0d66;
+      --gold:#c9a227; --ink:#1a1130; --muted:#6b5f85;
+      --cream:#f8f6fc; --card:#fff; --line:rgba(108,43,217,.12);
+      --red:#dc2626; --green:#16a34a;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html,body{margin:0;padding:0;}
+    body{
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--cream);
+      color:var(--ink);padding-bottom:76px; /* space for bottom nav */
+    }
+    .appbar{
+      position:sticky;top:0;z-index:50;background:linear-gradient(135deg,var(--purple),var(--deep));
+      color:#fff;padding:16px 16px;display:flex;align-items:center;gap:12px;
+      box-shadow:0 4px 18px rgba(45,13,102,.3);
+    }
+    .appbar img{width:40px;height:40px;border-radius:10px;background:#fff;}
+    .appbar .t{font-weight:800;font-size:18px;letter-spacing:.3px;}
+    .appbar .s{font-size:12px;opacity:.8;}
+    .appbar .spacer{flex:1;}
+    .appbar .exit{background:rgba(255,255,255,.15);border:none;color:#fff;padding:8px 12px;border-radius:9px;font-size:13px;font-weight:700;}
+    .container{padding:16px;max-width:560px;margin:0 auto;}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(45,13,102,.06);}
+    .card h3{margin:0 0 10px;}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
+    .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center;box-shadow:0 2px 10px rgba(45,13,102,.06);}
+    .tile .num{font-size:30px;font-weight:800;color:var(--purple);}
+    .tile .lbl{font-size:12px;color:var(--muted);}
+    .btn{display:inline-block;padding:13px 18px;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;text-decoration:none!important;text-align:center;}
+    .btn-p{background:linear-gradient(135deg,var(--purple),var(--deep));color:#fff;box-shadow:0 4px 14px rgba(108,43,217,.35);}
+    .btn-g{background:linear-gradient(120deg,#e6c25c,#c9a227);color:#2a1d00;box-shadow:0 4px 14px rgba(201,162,39,.35);}
+    .btn-ghost{background:rgba(108,43,217,.08);color:var(--purple);}
+    .btn-r{background:#fee2e2;color:var(--red);}
+    .btn-sm{padding:9px 13px;font-size:13px;border-radius:10px;}
+    .full{width:100%;}
+    .form-group{margin-bottom:14px;}
+    .form-group label{display:block;font-weight:700;font-size:13px;margin-bottom:6px;color:var(--ink);}
+    .form-group input,.form-group select,.form-group textarea{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:11px;font-size:15px;background:var(--card);font-family:inherit;}
+    .flash{padding:12px 14px;border-radius:11px;margin-bottom:12px;font-weight:600;font-size:14px;}
+    .flash.success{background:#e6f7ed;color:#14532d;}
+    .flash.error{background:#fee2e2;color:#7f1d1d;}
+    .flash.info{background:#e0f2fe;color:#0c4a6e;}
+    .list-item{display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line);}
+    .list-item:last-child{border-bottom:none;}
+    .list-item .grow{flex:1;min-width:0;}
+    .list-item .ttl{font-weight:700;font-size:14px;word-break:break-word;}
+    .list-item .sub{font-size:12px;color:var(--muted);}
+    .actions{display:flex;gap:6px;flex-wrap:wrap;}
+    .tag{display:inline-block;background:var(--purple);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;}
+    .subject-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .subject-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 8px;text-align:center;text-decoration:none;color:var(--ink);display:block;overflow:visible;}
+    .subject-card span{line-height:1;overflow:visible;display:block;}
+    .subject-card .name{font-weight:700;font-size:13px;display:block;margin-top:4px;line-height:1.3;}
+    .subject-card .count{font-size:11px;color:var(--muted);display:block;margin-top:2px;line-height:1.3;}
+    /* bottom nav */
+    .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(45,13,102,.08);padding-bottom:env(safe-area-inset-bottom);}
+    .bottomnav a{flex:1;text-align:center;padding:10px 4px 8px;font-size:10px;color:var(--muted);text-decoration:none;font-weight:700;}
+    .bottomnav a .ic{font-size:20px;display:block;}
+    .bottomnav a.on{color:var(--purple);}
+    /* auth */
+    .authwrap{max-width:400px;margin:0 auto;padding:20px;}
+    .center{text-align:center;}
+    .install-banner{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;display:flex;align-items:center;gap:10px;}
+    .install-banner button{background:#4f46e5;color:#fff;border:none;border-radius:9px;padding:8px 12px;font-weight:700;font-size:13px;white-space:nowrap;}
+  </style>
+</head>
+<body>
+  <div class="appbar">
+    <img src="{{ url_for('static', filename='aw-logo.png') }}" alt="logo"
+         onerror="this.src='{{ url_for('static', filename='aw-logo-192.png') }}';">
+    <div>
+      <div class="t">{% block appbar_title %}ANUJ Admin{% endblock %}</div>
+      <div class="s">⚡ ANUJ IAS ASPIRANT</div>
+    </div>
+    <div class="spacer"></div>
+    {% if is_admin %}<a href="{{ url_for('admin_logout') }}" class="exit">Logout</a>{% endif %}
+  </div>
+
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  {% if is_admin %}
+  <nav class="bottomnav">
+    <a href="{{ url_for('admin_dashboard') }}" class="{% if request.endpoint=='admin_dashboard' %}on{% endif %}"><span class="ic">🏠</span>Dashboard</a>
+    <a href="{{ url_for('admin_upload') }}" class="{% if request.endpoint=='admin_upload' %}on{% endif %}"><span class="ic">➕</span>Upload</a>
+    <a href="{{ url_for('admin_subjects') }}" class="{% if request.endpoint=='admin_subjects' %}on{% endif %}"><span class="ic">🗂️</span>Subjects</a>
+    <a href="{{ url_for('admin_purchase') }}" class="{% if request.endpoint=='admin_purchase' %}on{% endif %}"><span class="ic">🎟️</span>Purchase</a>
+  </nav>
+  {% endif %}
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('{{ url_for('admin_sw') }}').catch(function(){});
+      });
+    }
+    // Install app button
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e){
+      e.preventDefault(); deferredPrompt = e;
+      var b = document.getElementById('installBtn');
+      var banner = document.getElementById('installBanner');
+      if (b) b.onclick = function(){ deferredPrompt.prompt(); };
+      if (banner) banner.style.display='flex';
+    });
+  </script>
+</body>
+</html>
+""",
+    'admin_dashboard.html': """{% extends "admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block appbar_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="section-title">
-    <h2>🧑‍💼 Admin Dashboard</h2>
-    <p>Notes subject-wise — pehle subject chunein, phir files serial mein.</p>
+  <div class="grid">
+    <div class="tile"><div class="num">{{ total_notes }}</div><div class="lbl">Total Notes</div></div>
+    <div class="tile"><div class="num">{{ counts|length }}</div><div class="lbl">Subjects</div></div>
   </div>
 
-  <div class="stat-grid">
-    <div class="stat"><div class="num">{{ total_notes }}</div><div class="lbl">Total Notes</div></div>
-    <div class="stat"><div class="num">{{ counts|length }}</div><div class="lbl">Subjects</div></div>
+  <div class="grid" style="grid-template-columns:repeat(2,1fr);">
+    <a href="{{ url_for('admin_upload') }}" class="btn btn-p" style="text-align:center;">➕ Upload</a>
+    <a href="{{ url_for('admin_purchase') }}" class="btn btn-g" style="text-align:center;">🎟️ Purchase</a>
   </div>
 
-  <div class="toolbar">
-    <a href="{{ url_for('admin_upload') }}" class="btn btn-primary">➕ Naya Note Upload</a>
-    <a href="{{ url_for('admin_subjects') }}" class="btn btn-ghost">🗂️ Manage Subjects</a>
-    <a href="{{ url_for('admin_purchase') }}" class="btn btn-gold">🎟️ User Ko Purchase Access</a>
-  </div>
-
-  <!-- Subjects ki list (clickable) -->
-  <div class="section-title" style="margin-top:20px;">
-    <div class="tag">Subjects</div>
-    <h2>🗂️ Subject Chunein</h2>
-    <p>Kisi bhi subject par click karein — neeche uski files serial mein dikhengi.</p>
-  </div>
-  <div class="subject-grid">
-    {% for c in counts %}
-      <a class="subject-card" href="#sub-{{ c.slug }}">
-        <span class="emoji">{{ subject_emoji(c.slug) }}</span>
-        <span class="name">{{ c.name }}</span>
-        <span class="count">{{ c.hindi }} · {{ c.cnt }} files</span>
-      </a>
-    {% endfor %}
-  </div>
-
-  <!-- Subject-wise files -->
-  {% for slug, items in by_subject.items() %}
-    <div class="section-title" id="sub-{{ slug }}" style="margin-top:40px;">
-      <div class="tag">Subject</div>
-      <h2>{{ subject_emoji(slug) }} {{ subject_name(slug) }} <span style="font-size:16px;color:var(--muted);font-weight:400">({{ items|selectattr('__meta__','undefined')|list|length }} files)</span></h2>
+  <div class="card">
+    <h3>🗂️ Subject Chunein</h3>
+    <div class="subject-grid">
+      {% for c in counts %}
+        <a class="subject-card" href="#sub-{{ c.slug }}">
+          <span style="font-size:24px;">{{ subject_emoji(c.slug) }}</span>
+          <span class="name">{{ c.name }}</span>
+          <span class="count">{{ c.cnt }} files</span>
+        </a>
+      {% endfor %}
     </div>
-    <table class="admin-table">
-      <thead>
-        <tr><th>#</th><th>Title</th><th>Type</th><th style="width:180px;">Actions</th></tr>
-      </thead>
-      <tbody>
+  </div>
+
+  {% for slug, items in by_subject.items() %}
+    <div style="margin-top:6px;">
+      <h3 id="sub-{{ slug }}" style="margin:18px 0 8px;">
+        {{ subject_emoji(slug) }} {{ subject_name(slug) }}
+        <span style="font-size:13px;color:var(--muted);font-weight:400;">({{ items|selectattr('__meta__','undefined')|list|length }} files)</span>
+      </h3>
+      <div class="card" style="padding:6px 14px;">
         {% set ns = namespace(c=0) %}
         {% for n in items %}
           {% if n.__meta__ is defined %}
           {% else %}
             {% set ns.c = ns.c + 1 %}
-            <tr>
-              <td>{{ ns.c }}</td>
-              <td><b>{{ n.title }}</b></td>
-              <td><span class="type-badge" style="position:static;background:var(--emerald);">{{ n.file_type }}</span></td>
-              <td>
-                <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-sm btn-ghost" target="_blank">👁️ Open</a>
-                <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-sm btn-gold">⬇️ Free</a>
-                <form method="post" action="{{ url_for('admin_delete', note_id=n.id) }}" style="display:inline;"
-                      onsubmit="return confirm('Delete \\'{{ n.title }}\\'?');">
-                  <button class="btn btn-sm btn-danger">🗑️</button>
+            <div class="list-item">
+              <div class="grow">
+                <div class="ttl">{{ ns.c }}. {{ n.title }}</div>
+                <div class="sub"><span class="tag">{{ n.file_type }}</span> ₹{{ '%g' % n.price }}</div>
+              </div>
+              <div class="actions">
+                <a href="{{ url_for('note_view', note_id=n.id) }}" class="btn btn-sm btn-ghost" target="_blank">👁️</a>
+                <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-sm btn-g" style="padding:9px 10px;">⬇️</a>
+                <form method="post" action="{{ url_for('admin_delete', note_id=n.id) }}"
+                      onsubmit="return confirm('Delete {{ n.title|e }}?');">
+                  <button class="btn btn-sm btn-r" style="padding:9px 10px;">🗑️</button>
                 </form>
-              </td>
-            </tr>
+              </div>
+            </div>
           {% endif %}
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </div>
   {% endfor %}
-
-</div>
 {% endblock %}
 """,
-    'admin_login.html': """{% extends "base.html" %}
-{% block title %}Admin Login — {{ SITE_NAME }}{% endblock %}
+    'admin_login.html': """{% extends "admin_base.html" %}
+{% block title %}Admin Login{% endblock %}
+{% block appbar_title %}Admin Login{% endblock %}
 
 {% block content %}
-<div class="auth-wrap">
-  <div class="card">
-    <div style="text-align:center; margin-bottom:20px;">
-      <div style="font-size:50px;">🔐</div>
-      <h2 style="margin:8px 0 4px;">Admin Login</h2>
-      <p style="color:var(--muted); margin:0; font-size:14px;">Notes upload/delete karne ke liye login karein.</p>
-    </div>
+<div class="authwrap">
+  <div class="center" style="margin-bottom:16px;">
+    <img src="{{ url_for('static', filename='aw-logo.png') }}" alt="logo"
+         style="width:72px;height:72px;border-radius:18px;"
+         onerror="this.src='{{ url_for('static', filename='aw-logo-192.png') }}';">
+    <h2 style="margin:10px 0 4px;">ANUJ Admin App</h2>
+    <p style="color:var(--muted);margin:0;font-size:13px;">Notes upload/delete ke liye login karein 🔐</p>
+  </div>
 
+  <div class="card">
+    <div class="install-banner" id="installBanner" style="display:none;">
+      <span>📲 Is app ko phone pe install karein?</span>
+      <button id="installBtn">Install</button>
+    </div>
     <form method="POST">
       <div class="form-group">
         <label>Username</label>
@@ -249,27 +376,19 @@ TEMPLATES = {
         <label>Password</label>
         <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
+      <button type="submit" class="btn btn-p full">🔓 Login</button>
     </form>
-
-    <p style="text-align:center; font-size:13px; color:var(--muted); margin-top:14px;">
-      Username: <b>admin</b><br>(Password aapne set kiya hai — app.py mein change kar sakte hain)
-    </p>
   </div>
 </div>
 {% endblock %}
 """,
-    'admin_purchase.html': """{% extends "base.html" %}
-{% block title %}Add Purchase — {{ SITE_NAME }}{% endblock %}
+    'admin_purchase.html': """{% extends "admin_base.html" %}
+{% block title %}Purchase Access{% endblock %}
+{% block appbar_title %}🎟️ Purchase Access{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="section-title">
-    <h2>🎟️ User Ko Purchase Access Denein</h2>
-    <p>UPI/manual payment confirm hone par user ka email + bundle select karke access dein.</p>
-  </div>
-
-  <div class="card" style="max-width:560px;">
+  <div class="card">
+    <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">UPI/manual payment confirm hone par user ka email + bundle select karke access dein.</p>
     <form method="POST">
       <div class="form-group">
         <label>User ka Email</label>
@@ -283,146 +402,112 @@ TEMPLATES = {
           {% endfor %}
         </select>
       </div>
-      <button type="submit" class="btn btn-primary">✅ Access Denein</button>
+      <button type="submit" class="btn btn-g full">✅ Access Denein</button>
     </form>
   </div>
-
-  <div style="margin-top:20px;">
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">← Dashboard</a>
-  </div>
-</div>
 {% endblock %}
 """,
-    'admin_subjects.html': """{% extends "base.html" %}
-{% block title %}Manage Subjects — {{ SITE_NAME }}{% endblock %}
+    'admin_subjects.html': """{% extends "admin_base.html" %}
+{% block title %}Manage Subjects{% endblock %}
+{% block appbar_title %}🗂️ Subjects{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') }}">← Dashboard</a></div>
-  <div class="section-title">
-    <h2>🗂️ Manage Subjects</h2>
-    <p>Naya subject add karein ya purana delete karein.</p>
-  </div>
-
-  <div class="card" style="max-width:760px; margin-bottom:24px;">
-    <h3 style="margin-top:0;">Naya Subject Add Karein</h3>
+  <div class="card">
+    <h3>Naya Subject Add Karein</h3>
     <form method="POST">
       <input type="hidden" name="action" value="add">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Name *</label>
-          <input type="text" name="name" required placeholder="e.g. Disaster Management">
-        </div>
-        <div class="form-group">
-          <label>Hindi Name</label>
-          <input type="text" name="hindi" placeholder="e.g. आपदा प्रबंधन">
-        </div>
+      <div class="form-group">
+        <label>Name *</label>
+        <input type="text" name="name" required placeholder="e.g. Disaster Management">
+      </div>
+      <div class="form-group">
+        <label>Hindi Name</label>
+        <input type="text" name="hindi" placeholder="e.g. आपदा प्रबंधन">
       </div>
       <div class="form-group">
         <label>Slug (URL) — khali chhodo, auto ban jayega</label>
         <input type="text" name="slug" placeholder="e.g. disaster-management">
       </div>
-      <button class="btn btn-primary" type="submit">➕ Subject Add Karein</button>
+      <button class="btn btn-p full" type="submit">➕ Subject Add Karein</button>
     </form>
   </div>
 
   <h3>Subjects ({{ subjects|length }})</h3>
-  <table class="admin-table">
-    <thead><tr><th>Emoji</th><th>Name</th><th>Hindi</th><th>Slug</th><th style="width:100px;">Action</th></tr></thead>
-    <tbody>
-      {% for s in subjects %}
-      <tr>
-        <td>{{ subject_emoji(s.slug) }}</td>
-        <td><b>{{ s.name }}</b></td>
-        <td>{{ s.hindi }}</td>
-        <td style="color:var(--muted);">{{ s.slug }}</td>
-        <td>
-          <form method="POST" onsubmit="return confirm('Subject \\'{{ s.name }}\\' delete karein?');">
+  <div class="card" style="padding:6px 14px;">
+    {% for s in subjects %}
+      <div class="list-item">
+        <div class="grow">
+          <div class="ttl">{{ subject_emoji(s.slug) }} {{ s.name }}</div>
+          <div class="sub">{{ s.hindi }} · {{ s.slug }}</div>
+        </div>
+        <div class="actions">
+          <form method="POST" onsubmit="return confirm('Subject {{ s.name|e }} delete karein?');">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="id" value="{{ s.id }}">
-            <button class="btn btn-sm btn-danger">🗑️</button>
+            <button class="btn btn-sm btn-r">🗑️</button>
           </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <p style="font-size:13px;color:var(--muted);">Note: kisi subject mein notes hon, to pehle woh notes delete karein tabhi subject delete hoga.</p>
-</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <p style="font-size:12px;color:var(--muted);">Note: subject mein notes ho to pehle notes delete karein tabhi subject delete hoga.</p>
 {% endblock %}
 """,
-    'admin_upload.html': """{% extends "base.html" %}
-{% block title %}Upload Note — {{ SITE_NAME }}{% endblock %}
+    'admin_upload.html': """{% extends "admin_base.html" %}
+{% block title %}Upload Note{% endblock %}
+{% block appbar_title %}➕ Upload Note{% endblock %}
 
 {% block content %}
-<div class="container">
-  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') }}">← Dashboard</a></div>
-  <div class="section-title">
-    <h2>➕ Naya Note Upload</h2>
-    <p>PDF ya HTML file upload karein. Saari details bharein aur submit karein.</p>
-  </div>
-
-  <div class="card" style="max-width:760px;">
+  <div class="card">
     <form method="POST" enctype="multipart/form-data">
       <div class="form-group">
         <label>Note ka Title *</label>
-        <input type="text" name="title" required placeholder="e.g. Geography Complete Notes for Prelims">
+        <input type="text" name="title" required placeholder="e.g. Geography Complete Notes">
       </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Subject *</label>
-          <select name="subject_slug" required>
-            {% for s in subjects %}
-              <option value="{{ s.slug }}">{{ subject_emoji(s.slug) }} {{ s.name }} ({{ s.hindi }})</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Language</label>
-          <input type="text" name="language" value="Hindi + English" placeholder="Hindi, English, Hindi + English">
-        </div>
+      <div class="form-group">
+        <label>Subject *</label>
+        <select name="subject_slug" required>
+          {% for s in subjects %}
+            <option value="{{ s.slug }}">{{ subject_emoji(s.slug) }} {{ s.name }}</option>
+          {% endfor %}
+        </select>
       </div>
-
+      <div class="form-group">
+        <label>Language</label>
+        <input type="text" name="language" value="Hindi + English">
+      </div>
       <div class="form-group">
         <label>Description</label>
         <textarea name="description" rows="3" placeholder="Is note mein kya-kya covered hai..."></textarea>
       </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Price (₹) *</label>
-          <input type="number" name="price" step="0.01" min="0" required placeholder="99">
-        </div>
-        <div class="form-group">
-          <label>Original Price (₹) — optional, discount dikhane ke liye</label>
-          <input type="number" name="original_price" step="0.01" min="0" placeholder="199">
-        </div>
+      <div class="form-group">
+        <label>Price (₹) *</label>
+        <input type="number" name="price" step="0.01" min="0" required placeholder="99">
       </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Pages (optional)</label>
-          <input type="number" name="pages" min="0" placeholder="150">
-        </div>
-        <div class="form-group">
-          <label>File * (.pdf ya .html)</label>
-          <input type="file" name="file" accept=".pdf,.html,.htm" required>
-        </div>
+      <div class="form-group">
+        <label>Original Price (₹) — optional (discount dikhane ke liye)</label>
+        <input type="number" name="original_price" step="0.01" min="0" placeholder="199">
       </div>
-
-      <div class="form-group checkbox">
-        <input type="checkbox" name="featured" value="1" id="feat">
-        <label for="feat" style="margin:0;">⭐ Featured note banayein (homepage par dikhega)</label>
+      <div class="form-group">
+        <label>Pages (optional)</label>
+        <input type="number" name="pages" min="0" placeholder="150">
       </div>
-
-      <div class="toolbar" style="margin-top:20px;">
-        <button type="submit" class="btn btn-primary" style="font-size:16px;">📤 Upload Karin</button>
+      <div class="form-group">
+        <label>File * (.pdf ya .html)</label>
+        <input type="file" name="file" accept=".pdf,.html,.htm" required>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" name="featured" value="1" style="width:auto;">
+          ⭐ Featured note (homepage par dikhega)
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" class="btn btn-p full">📤 Upload Karin</button>
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-ghost">Cancel</a>
       </div>
     </form>
   </div>
-</div>
 {% endblock %}
 """,
     'base.html': """<!DOCTYPE html>
@@ -629,7 +714,12 @@ header.site {
 .subject-card > .btn { position: relative; z-index: 3; }
 .subject-card:hover { transform: translateY(-6px); box-shadow: 0 0 22px rgba(108,43,217,.35), 0 0 50px rgba(108,43,217,.15), var(--shadow); border-color: rgba(201,162,39,.6); }
 .subject-card:hover::before { opacity: 1; }
-.subject-card .emoji { font-size: 38px; display: block; margin-bottom: 10px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.1)); }
+.subject-card .emoji {
+  font-size: 38px; display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 52px; line-height: 1; margin-bottom: 10px;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.1));
+  overflow: visible; padding: 2px 0;
+}
 .subject-card .name { font-weight: 700; color: var(--ink); font-size: 15px; position: relative; }
 .subject-card .count { font-size: 12px; color: var(--muted); margin-top: 4px; position: relative; }
 .subject-card .exam-tag {
@@ -652,6 +742,8 @@ header.site {
   height: 150px; display: flex; align-items: center; justify-content: center; position: relative;
   background: linear-gradient(135deg, #efe9fc, #ddd0f5); font-size: 54px;
 }
+.note-thumb span { line-height: 1; overflow: visible; }
+.note-thumb .type-badge { line-height: normal; }
 .note-thumb .type-badge {
   position: absolute; top: 12px; right: 12px; background: rgba(108,43,217,.88); color: #fff;
   font-size: 10px; font-weight: 700; padding: 4px 11px; border-radius: 20px; text-transform: uppercase; letter-spacing: .6px;
@@ -900,14 +992,14 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
   <div class="topbar">
     <div class="container">
       <span>&#10022; UPSC | BPSC | State PCS &#8212; Premium Notes</span>
-      <span>{% if is_admin %}<a href="{{ url_for('admin_dashboard') }}">&#129489;&#8205;&#128187; Admin Panel</a>{% else %}<a href="{{ url_for('admin_login') }}">Admin Login</a>{% endif %}</span>
+      <span>&#128274; Secure • Verified Notes</span>
     </div>
   </div>
 
   <header class="site">
     <div class="container navbar">
       <a href="{{ url_for('index') }}" class="brand">
-        <img src="{{ url_for('static', filename='aw-logo.png') }}" alt="{{ SITE_NAME }}" style="width:46px;height:46px;border-radius:12px;object-fit:cover;">
+        <img src="{{ url_for('static', filename='aw-logo.png') }}" alt="{{ SITE_NAME }}" style="width:46px;height:46px;border-radius:12px;object-fit:cover;background:#6c2bd9;" onerror="this.onerror=null;this.src='data:image/png;base64,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';">
         <div>
           <div class="brand-name">UPSC<span>Notes</span></div>
           <div class="brand-tag">{{ SITE_TAGLINE }}</div>
@@ -929,12 +1021,6 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         {% else %}
           <a href="{{ url_for('login') }}">Login</a>
           <a class="admin-btn" href="{{ url_for('signup') }}">Sign Up</a>
-        {% endif %}
-        {% if is_admin %}
-          <a class="admin-btn" href="{{ url_for('admin_upload') }}">+ Upload</a>
-          <a class="admin-btn" href="{{ url_for('admin_logout') }}">Admin Logout</a>
-        {% else %}
-          <a href="{{ url_for('admin_login') }}">Admin</a>
         {% endif %}
         <button class="theme-toggle" id="themeToggle" title="Dark/Light">&#127769;</button>
       </nav>

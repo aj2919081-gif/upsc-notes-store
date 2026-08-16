@@ -16,6 +16,9 @@ services:
       # ⚠️ APNA PASSWORD YAHAN BADLEIN (ya Render Dashboard se set karein)
       - key: ADMIN_PASSWORD
         value: aj521900
+      # Admin app ka SECRET URL path — isse kisi ko batana nahi!
+      - key: ADMIN_TOKEN
+        value: aj-secret-admin-x7q9z2
       - key: UPI_ID
         value: 9569431430@ybl
       - key: SELLER_PHONE
