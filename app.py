@@ -117,8 +117,8 @@ ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "aj-secret-admin-x7q9z2")
 ADMIN_PREFIX = "/" + ADMIN_TOKEN  # e.g. /aj-secret-admin-x7q9z2
 
 # FREE subjects — in subjects ke notes bina login/payment ke sabko free milenge.
-# (jaise PYQs). Yahan aur subjects add kar sakte hain.
-FREE_SUBJECTS = {"pyqs"}
+# (jaise PYQs, Current Affairs). Yahan aur subjects add kar sakte hain.
+FREE_SUBJECTS = {"pyqs", "current-affairs"}
 
 # UPI details for manual payment (buyer aapko contact karega)
 UPI_ID = os.environ.get("UPI_ID", "9569431430@ybl")
@@ -567,6 +567,12 @@ def subject_page(slug):
         pyq_notes = [dict(r) for r in conn.execute(
             "SELECT * FROM notes WHERE subject_slug='pyqs' AND title NOT LIKE '%Complete Bundle%' ORDER BY title"
         ).fetchall()]
+    # Current Affairs subject — saare months dikhao (individual notes)
+    ca_notes = []
+    if slug == "current-affairs":
+        ca_notes = [dict(r) for r in conn.execute(
+            "SELECT * FROM notes WHERE subject_slug='current-affairs' AND title NOT LIKE '%Complete Bundle%' ORDER BY title"
+        ).fetchall()]
     # child subjects (sub-parts) fetch karo — har part ki bundle/price info ke saath
     children = []
     for cslug in CHILD_SUBJECTS.get(slug, []):
@@ -592,8 +598,13 @@ def subject_page(slug):
     # PYQs papers ko Prelims/Mains me split karo (template me aasan dikhane ke liye)
     pyq_prelims = [n for n in pyq_notes if "Prelims" in (n["title"] or "")]
     pyq_mains = [n for n in pyq_notes if "Mains" in (n["title"] or "")]
+    # Current Affairs months ko month-order me sort karo
+    month_order = ["January","February","March","April","May","June","July",
+                   "August","September","October","November","December"]
+    ca_sorted = sorted(ca_notes, key=lambda n: month_order.index(next((m for m in month_order if m in (n["title"] or "")), "January")))
     return render_template("subject.html", subject=subj, notes=[dict(n) for n in rows], children=children,
-                           pyq_notes=pyq_notes, pyq_prelims=pyq_prelims, pyq_mains=pyq_mains)
+                           pyq_notes=pyq_notes, pyq_prelims=pyq_prelims, pyq_mains=pyq_mains,
+                           ca_notes=ca_sorted)
 
 
 @app.route("/note/<int:note_id>")
