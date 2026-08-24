@@ -211,6 +211,7 @@ _SECURITY_HEADERS = {
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
+        "frame-src 'self' data:; "
         "connect-src 'self'; "
         "frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     ),
