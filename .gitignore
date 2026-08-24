@@ -4,10 +4,33 @@ __pycache__/
 *.egg-info/
 .env
 
-# Uploads: files jo runtime par admin add karega (initial data ko repo mein rakhna hai,
-# isliye uploads/ aur upsc.db commit karein — niche unhe allow kiya gaya hai)
-uploads/upi/screenshot_backup.png
+# SQLite WAL/SHM runtime files
+*.db-wal
+*.db-shm
+
+# DB: is repo mein wala upsc.db sirf SEED data hai (413 notes, PII se sanitized).
+# Runtime par banne wale naye users/payments RENDER KE EPHEMERAL DISK par hote
+# hain aur har deploy par reset ho jate hain (H1 issue). Backup strategy
+# zaroor banayein — dekho REVIEW.md.
+# Agar aap DB ko aage repo mein track NAHI karna chahte, is line ko comment
+# hata dein:
+# upsc.db
+
+# Uploads: runtime par admin se add hone wale files (repo mein sirf empty
+# folder structure rehta hai taaki app start ho sake)
+/uploads/pdfs/*
+/uploads/html/*
+/uploads/upi/*
+!uploads/pdfs/.gitkeep
+!uploads/html/.gitkeep
+!uploads/upi/.gitkeep
+# FREE PYQ papers — repo mein tracked (Render deploy par bhi rahen)
+!uploads/pdfs/prelims-*.pdf
+!uploads/pdfs/mains-*.pdf
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets setup guide (render dashboard values ke saath) — kabhi commit mat karein
+SETUP.md

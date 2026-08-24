@@ -345,6 +345,7 @@ TEMPLATES = {
                 <a href="{{ url_for('download_note', note_id=n.id) }}" class="btn btn-sm btn-g" style="padding:9px 10px;">⬇️</a>
                 <form method="post" action="{{ url_for('admin_delete', note_id=n.id) }}"
                       onsubmit="return confirm('Delete {{ n.title|e }}?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button class="btn btn-sm btn-r" style="padding:9px 10px;">🗑️</button>
                 </form>
               </div>
@@ -376,6 +377,7 @@ TEMPLATES = {
       <button id="installBtn">Install</button>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
         <label>Username</label>
         <input type="text" name="username" required placeholder="admin" autocomplete="username">
@@ -398,6 +400,7 @@ TEMPLATES = {
   <div class="card">
     <p style="margin:0 0 12px;color:var(--muted);font-size:13px;">UPI/manual payment confirm hone par user ka email + bundle select karke access dein.</p>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
         <label>User ka Email</label>
         <input type="email" name="email" required placeholder="customer@example.com">
@@ -423,6 +426,7 @@ TEMPLATES = {
   <div class="card">
     <h3>Naya Subject Add Karein</h3>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="action" value="add">
       <div class="form-group">
         <label>Name *</label>
@@ -450,6 +454,7 @@ TEMPLATES = {
         </div>
         <div class="actions">
           <form method="POST" onsubmit="return confirm('Subject {{ s.name|e }} delete karein?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="id" value="{{ s.id }}">
             <button class="btn btn-sm btn-r">🗑️</button>
@@ -468,6 +473,7 @@ TEMPLATES = {
 {% block content %}
   <div class="card">
     <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
         <label>Note ka Title *</label>
         <input type="text" name="title" required placeholder="e.g. Geography Complete Notes">
@@ -1468,6 +1474,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); margin:0; font-size:14px;">Apne account se login karein.</p>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="next" value="{{ next_url }}">
       <div class="form-group">
         <label>Email</label>
@@ -1483,6 +1490,26 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       Account nahi hai? <a href="{{ url_for('signup') }}"><b>Sign up karein</b></a>
     </p>
   </div>
+</div>
+{% endblock %}
+""",
+
+    'note_view_wrapper.html': """{% extends "base.html" %}
+{% block title %}{{ note.title }} — {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<div style="padding:0;">
+  <div style="position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid #e5e7eb;
+              padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <a href="{{ url_for('note_detail', note_id=note.id) }}" class="btn btn-sm" style="text-decoration:none;">← Wapas</a>
+    <div style="flex:1;font-weight:600;font-size:15px;min-width:140px;">
+      {{ subject_emoji(note.subject_slug) }} {{ note.title }}
+    </div>
+    <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn btn-sm btn-primary" style="text-decoration:none;">⬇️ Download</a>
+  </div>
+  <!-- SECURITY: sandbox = scripts note content mein block (stored-XSS fix, dekho REVIEW.md C7) -->
+  <iframe sandbox="allow-same-origin"
+          src="{{ url_for('note_view_content', note_id=note.id) }}"
+          style="width:100%;height:calc(100vh - 150px);border:none;display:block;background:#fff;"></iframe>
 </div>
 {% endblock %}
 """,
@@ -1533,6 +1560,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         {% if is_admin %}
           <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn btn-gold" target="_blank">⬇️ Free Download</a>
           <form method="post" action="{{ url_for('admin_delete', note_id=note.id) }}" onsubmit="return confirm('Kya aap ye note delete karna chahte hain?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="btn btn-danger" type="submit">🗑️ Delete</button>
           </form>
         {% endif %}
@@ -1602,7 +1630,8 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
         razorpay_payment_id: response.razorpay_payment_id,
         razorpay_order_id: response.razorpay_order_id,
         razorpay_signature: response.razorpay_signature,
-        note_id: "{{ note.id }}"
+        note_id: "{{ note.id }}",
+        csrf_token: "{{ csrf_token }}"
       };
       for (var k in fields) {
         var i = document.createElement('input');
@@ -1685,7 +1714,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
           {% if c.preview_file %}
             <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;margin-bottom:20px;">
               <div style="padding:10px 16px;background:var(--grad-emerald);color:#fff;font-weight:700;">{{ subject_emoji(c.slug) }} {{ c.name }} — Preview</div>
-              <iframe src="data:text/html;base64,{{ c.preview_file.content|default('') }}" style="width:100%;min-height:500px;border:none;"></iframe>
+              <iframe sandbox src="data:text/html;base64,{{ c.preview_file.content|default('') }}" style="width:100%;min-height:500px;border:none;"></iframe>
             </div>
           {% endif %}
         {% endfor %}
@@ -1704,7 +1733,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       {% endif %}
       {% if first_content %}
         <div style="border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff;">
-          <iframe src="data:text/html;base64,{{ first_content }}" style="width:100%;min-height:700px;border:none;"></iframe>
+          <iframe sandbox src="data:text/html;base64,{{ first_content }}" style="width:100%;min-height:700px;border:none;"></iframe>
         </div>
       {% else %}
         <div class="card" style="text-align:center;padding:40px;">📭 Is subject ki files abhi upload nahi hui.</div>
@@ -1735,6 +1764,7 @@ body.dark-mode .admin-table th { background: #122019; color: #cfe7da; }
       <p style="color:var(--muted); margin:0; font-size:14px;">Notes kharidne ke liye account banao.</p>
     </div>
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="next" value="{{ next_url }}">
       <div class="form-group">
         <label>Apna Naam</label>

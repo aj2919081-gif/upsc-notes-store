@@ -1,6 +1,12 @@
 # Render.com Blueprint — isse Render par ek-click deploy hoga
 # (Render mein "New -> Blueprint" chunein aur ye repo select karein)
-
+#
+# ⚠️ SECURITY (24 Aug 2026 update): Pehle is file mein asli secrets hardcoded
+# the (admin password, admin token, Razorpay key secret) — wo public repo mein
+# commit ho gaye the. Ab sab secrets `generateValue` se aate hain (Render
+# khud strong random value banata hai) aur Razorpay keys ko Render Dashboard
+# se set karna hota hai (kyunki wo Razorpay se aati hain, generate nahi ho
+# sakti). Purani values use NAHI karni — wo public hain.
 services:
   - type: web
     name: upsc-notes-store
@@ -13,12 +19,17 @@ services:
         generateValue: true
       - key: ADMIN_USERNAME
         value: admin
-      # ⚠️ APNA PASSWORD YAHAN BADLEIN (ya Render Dashboard se set karein)
+      # Render Dashboard se value dekho (generate hui hai) — kabhi repo mein mat likhna
       - key: ADMIN_PASSWORD
-        value: aj521900
-      # Admin app ka SECRET URL path — isse kisi ko batana nahi!
+        generateValue: true
       - key: ADMIN_TOKEN
-        value: aj-secret-admin-x7q9z2
+        generateValue: true
+      # Razorpay keys Render Dashboard mein manually set karein
+      # (Razorpay Dashboard -> Settings -> API Keys se leke) — yahan nahi:
+      #   RAZORPAY_KEY_ID    = rzp_live_xxx  (ya rzp_test_xxx)
+      #   RAZORPAY_KEY_SECRET = xxx
+      # (set nahi kiye toh site manual UPI payment mode mein chalega — theek hai)
+      # Neeche sirf public business info hai (buy page par buyers ko dikhti hai):
       - key: UPI_ID
         value: 9569431430@ybl
       - key: SELLER_PHONE

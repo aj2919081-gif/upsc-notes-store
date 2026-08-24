@@ -104,35 +104,51 @@ print(f"[startup] TEMPLATES_DIR = {TEMPLATES_DIR} (exists={os.path.isdir(TEMPLAT
 print(f"[startup] DB_PATH = {DB_PATH} (exists={os.path.isfile(DB_PATH)})")
 print(f"[startup] UPLOAD_FOLDER = {UPLOAD_FOLDER} (exists={os.path.isdir(UPLOAD_FOLDER)})")
 
-# ---- Aapki settings (change kar sakte hain) ----
+# ---- Aapki settings ----
+# SECURITY: Secrets (password/token/session/razorpay) sirf ENVIRONMENT VARIABLES
+# se aate hain — code ya repo mein hardcode NAHI karna (pehle wo public repo mein
+# committed the, isliye sab rotate kar diya gaya hai — SETUP.md dekho).
 SITE_NAME = "UPSC Notes Store"
 SITE_TAGLINE = "Premium UPSC Notes — Ek Jagah, Sab Subjects"
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-# Password — environment variable se, warna default. Render par env variable set karein!
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "aj521900")
-SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-this-secret-key-please-123")
-# Admin panel ka SECRET URL path — sirf aapko pata hoga.
-# Change kar sakte hain. Render par env variable ADMIN_TOKEN set karein.
-ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "aj-secret-admin-x7q9z2")
-ADMIN_PREFIX = "/" + ADMIN_TOKEN  # e.g. /aj-secret-admin-x7q9z2
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "")
+# Admin panel ka SECRET URL path — sirf aapko pata hona chahiye.
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "")
+ADMIN_PREFIX = "/" + ADMIN_TOKEN
 
 # FREE subjects — in subjects ke notes bina login/payment ke sabko free milenge.
 # (jaise PYQs, Current Affairs). Yahan aur subjects add kar sakte hain.
 FREE_SUBJECTS = {"pyqs", "current-affairs"}
 
-# UPI details for manual payment (buyer aapko contact karega)
-UPI_ID = os.environ.get("UPI_ID", "9569431430@ybl")
-UPI_QR_FILENAME = "qr.png"           # uploads/upi/qr.png mein rakhin
-SELLER_PHONE = os.environ.get("SELLER_PHONE", "+91-9569431430")
-SELLER_WHATSAPP = os.environ.get("SELLER_WHATSAPP", "+919569431430")
-SELLER_EMAIL = os.environ.get("SELLER_EMAIL", "aj2919081@gmail.com")
+# UPI / contact details (buyer ke liye public business info — buy page par dikhate hain)
+UPI_ID = os.environ.get("UPI_ID", "")
+UPI_QR_FILENAME = "qr.png"
+SELLER_PHONE = os.environ.get("SELLER_PHONE", "")
+SELLER_WHATSAPP = os.environ.get("SELLER_WHATSAPP", "")
+SELLER_EMAIL = os.environ.get("SELLER_EMAIL", "")
 
-# Razorpay (Test Mode abhi)
-RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_TO7y62j31VXybk")
-RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "8gywbRTay4qslNVywyLWEp4L")
+# Razorpay (live keys Razorpay dashboard se leke env vars mein set karein)
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
 ALLOWED_EXTENSIONS = {"pdf", "html", "htm"}
 MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100 MB max file
+
+# ---- Startup security check: secrets missing ho toh app start hi NAHI hoti ----
+_missing = [k for k, v in (
+    ("ADMIN_PASSWORD", ADMIN_PASSWORD),
+    ("ADMIN_TOKEN", ADMIN_TOKEN),
+    ("SESSION_SECRET", SESSION_SECRET),
+) if not v]
+if _missing:
+    raise SystemExit(
+        "FATAL: env vars missing: " + ", ".join(_missing) + ". "
+        "Render dashboard (ya local par `export VAR=...`) mein set karein. "
+        "Secrets code/repo mein hardcode nahi karna — SETUP.md dekho."
+    )
+if len(ADMIN_PASSWORD) < 8:
+    print("WARNING: ADMIN_PASSWORD 8 characters se chhota hai — strong password set karein.")
 
 # ---- Common UPSC subjects (pehle se add kiye hue) ----
 DEFAULT_SUBJECTS = [
@@ -174,8 +190,101 @@ app = Flask(__name__,
 app.jinja_loader = EmbeddedTemplateLoader()
 app.secret_key = SESSION_SECRET
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+# Session cookies: SameSite=Lax (CSRF mitigation) + Secure (sirf HTTPS par cookie).
+# Local HTTP testing ke liye: SESSION_COOKIE_INSECURE=1
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_INSECURE", "0") != "1"
+
+
+# ---- Security headers (sab responses par) ----
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    # Razorpay checkout CDN + templates ke inline scripts/styles ke liye allow.
+    # (HTML notes ka stored-XSS iska FIX nahi hai — uske liye sandbox chahiye.)
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    ),
+}
+
+
+# ---- CSRF protection ----
+# Har session ko ek random token milta hai; saare POST forms mein hidden
+# input `csrf_token` hona chahiye (templates mein {{ csrf_token }} hai).
+# Iske bina koi bhi POST 403 deta hai (SameSite cookie ke saath double cover).
+@app.context_processor
+def inject_csrf():
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_urlsafe(32)
+    return {"csrf_token": session["csrf_token"]}
+
+
+@app.before_request
+def csrf_protect():
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        tok = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or ""
+        if not tok or not secrets.compare_digest(tok, session.get("csrf_token", "")):
+            abort(403)
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    return Response(
+        "<!DOCTYPE html><html lang='hi'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "<title>403 — Access Denied</title></head>"
+        "<body style='font-family:sans-serif;max-width:520px;margin:60px auto;padding:0 20px;text-align:center;'>"
+        "<div style='font-size:64px;'>🔒</div><h2>Request reject ho gayi (403)</h2>"
+        "<p>Iska matlab page bina refresh ke form submit hua, ya session expire ho gaya. "
+        "Page <b>refresh</b> karke dobara try karein.</p>"
+        "<a href='/' style='color:#2d0d66;font-weight:600;'>← Home chalein</a>"
+        "</body></html>",
+        status=403,
+        mimetype="text/html",
+    )
+
+
+# ---- Open-redirect protection (login/signup ka `next` param) ----
+def safe_next(url, fallback):
+    """Sirf same-site relative paths allow karo; external URL toh fallback."""
+    if not url:
+        return fallback
+    from urllib.parse import urlparse
+    p = urlparse(url)
+    if p.scheme or p.netloc or url.startswith("//") or not url.startswith("/"):
+        return fallback
+    return url
+
+
+# ---- Login brute-force throttle (simple in-memory, per worker) ----
+import time
+_LOGIN_THROTTLE = {}  # ip -> [fail_count, window_start]
+
+
+def _throttle_check(ip, max_tries=5, window=300):
+    """False = block karo. Note: in-memory hai, isliye har gunicorn worker
+    apna count rakhta hai — chhote scale par kaafi hai."""
+    now = time.time()
+    rec = _LOGIN_THROTTLE.get(ip)
+    if rec is None or now - rec[1] > window:
+        rec = [0, now]
+        _LOGIN_THROTTLE[ip] = rec
+    if rec[0] >= max_tries:
+        return False
+    rec[0] += 1
+    return True
 
 # Reload fix: ensure fresh content on every load (no stale cache)
+# + security headers har response par
 @app.after_request
 def add_no_cache_headers(resp):
     if request.path.startswith("/static/"):
@@ -186,6 +295,16 @@ def add_no_cache_headers(resp):
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
+    for k, v in _SECURITY_HEADERS.items():
+        resp.headers[k] = v
+    # C7: note content par extra-strict CSP — yahan scripts bilkul nahi
+    # (sandbox ke saath double cover)
+    if request.path.endswith("/view/content"):
+        resp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; font-src 'self' data:; "
+            "frame-ancestors 'self'; base-uri 'none'"
+        )
     return resp
 
 for folder in (PDF_FOLDER, HTML_FOLDER, UPI_FOLDER):
@@ -196,13 +315,17 @@ for folder in (PDF_FOLDER, HTML_FOLDER, UPI_FOLDER):
 # DATABASE HELPERS
 # ============================================================
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # M6: timeout + busy_timeout — gunicorn multi-worker concurrency ke liye
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
 def init_db():
     conn = get_db()
+    # M6: WAL mode — concurrent read/write safe (har deploy par ek baar set hota hai)
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS subjects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -250,6 +373,20 @@ def init_db():
             email TEXT DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS admin_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            detail TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+    """)
+    # M6: Indexes — har request ke queries (subject filter, sort, purchase lookups)
+    conn.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_notes_subject ON notes(subject_slug);
+        CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at);
+        CREATE INDEX IF NOT EXISTS idx_notes_featured ON notes(featured);
+        CREATE INDEX IF NOT EXISTS idx_payments_pid ON payments(payment_id);
+        CREATE INDEX IF NOT EXISTS idx_purchases_user_bundle ON purchases(user_id, bundle_id);
     """)
     # seed subjects if empty
     count = conn.execute("SELECT COUNT(*) AS c FROM subjects").fetchone()["c"]
@@ -266,11 +403,24 @@ def init_db():
 init_db()
 
 
+# M5: Subjects list har request par DB se nahi — 60s TTL cache
+# (subject add/delete hone ke 60s baad fresh dikhegi — kaafi hai)
+_subjects_cache = {"rows": None, "ts": 0}
+
+
 def get_subjects():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM subjects ORDER BY id").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    if _subjects_cache["rows"] is None or time.time() - _subjects_cache["ts"] > 60:
+        conn = get_db()
+        rows = conn.execute("SELECT * FROM subjects ORDER BY id").fetchall()
+        conn.close()
+        _subjects_cache["rows"] = [dict(r) for r in rows]
+        _subjects_cache["ts"] = time.time()
+    return _subjects_cache["rows"]
+
+
+def invalidate_subjects_cache():
+    _subjects_cache["rows"] = None
+    _subjects_cache["ts"] = 0
 
 
 def get_subject(slug):
@@ -421,7 +571,36 @@ def _compute_demo_preview_ids():
     return ids
 
 
-DEMO_PREVIEW_IDS = _compute_demo_preview_ids()
+# M4: Pehle ye import-time par ek baar compute hota tha (naye notes par stale
+# rehta). Ab 60s ka TTL cache — har 60s mein fresh, par har request par nahi.
+_demo_preview_cache = {"ids": None, "ts": 0}
+
+
+def demo_preview_ids():
+    if _demo_preview_cache["ids"] is None or time.time() - _demo_preview_cache["ts"] > 60:
+        _demo_preview_cache["ids"] = _compute_demo_preview_ids()
+        _demo_preview_cache["ts"] = time.time()
+    return _demo_preview_cache["ids"]
+
+
+def _check_view_access(note, conn):
+    """Individual note ka view access: admin / free subject / demo preview /
+    purchased subject bundle. (note_view + note_view_content dono use karte hain)"""
+    if session.get("is_admin"):
+        return True
+    # FREE subjects — in subjects ke notes bina login/payment ke khulte hain
+    if note["subject_slug"] in FREE_SUBJECTS:
+        return True
+    if note["id"] in demo_preview_ids():
+        return True
+    if session.get("user_id"):
+        # kya user ne is subject ka bundle kharida hai?
+        bought = conn.execute(
+            "SELECT id FROM purchases WHERE user_id=? AND bundle_id IN "
+            "(SELECT id FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%')",
+            (session["user_id"], note["subject_slug"])).fetchone()
+        return bool(bought)
+    return False
 
 
 def subject_emoji(slug):
@@ -451,7 +630,7 @@ def inject_globals():
         "now_year": lambda: datetime.now().year,
         "subject_emoji": subject_emoji,
         "subject_name": subject_name,
-        "demo_preview_ids": DEMO_PREVIEW_IDS,
+        "demo_preview_ids": demo_preview_ids(),
         "current_user": session.get("user_name"),
         "is_user": bool(session.get("user_id")),
     }
@@ -493,11 +672,15 @@ def index():
     hidden_slugs = {"geography-optional", "prelims", "mains", "other"}
     subject_counts = [dict(r) for r in subject_counts
                       if r["slug"] not in child_slugs and r["slug"] not in hidden_slugs]
-    # har subject ka bundle (price + id) add karo — Buy button ke liye (conn close se PEHLE)
+    # M5: har subject ka bundle — PEHLE ek query per subject hota tha (N+1),
+    # ab poore bundles EK query mein fetch karo
+    bundles = {}
+    for b in conn.execute(
+        "SELECT subject_slug, id, price, original_price FROM notes WHERE title LIKE '%Complete Bundle%'"
+    ).fetchall():
+        bundles[b["subject_slug"]] = b
     for sc in subject_counts:
-        b = conn.execute(
-            "SELECT id, price, original_price FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%' LIMIT 1",
-            (sc["slug"],)).fetchone()
+        b = bundles.get(sc["slug"])
         sc["bundle_id"] = b["id"] if b else None
         sc["bundle_price"] = b["price"] if b else 0
         sc["bundle_orig"] = b["original_price"] if b else 0
@@ -622,7 +805,8 @@ def note_detail(note_id):
 def note_view(note_id):
     """Preview:
     - Bundle → ek page jisme subject ke saare topics ki list + pehli file ka content dikhta hai.
-    - Individual files → sirf demo/preview note khulta hai, baaki Buy page par redirect.
+    - Individual HTML files → sandboxed iframe wrapper (scripts block — C7 fix).
+    - Individual PDF → direct inline.
     Download alag se locked hai."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
@@ -682,27 +866,14 @@ def note_view(note_id):
         conn.close()
         return render_template("preview.html", bundle=note, topics=topics, first_content=first_content, purchased=purchased, child_parts=child_parts)
     # Individual → demo ids OR purchased subject ke notes khule
-    has_access = session.get("is_admin") or note_id in DEMO_PREVIEW_IDS
-    # FREE subjects — in subjects ke notes bina login/payment ke khulte hain
-    if note["subject_slug"] in FREE_SUBJECTS:
-        has_access = True
-    if not has_access and session.get("user_id"):
-        # kya user ne is subject ka bundle kharida hai?
-        bought = conn.execute(
-            "SELECT id FROM purchases WHERE user_id=? AND bundle_id IN "
-            "(SELECT id FROM notes WHERE subject_slug=? AND title LIKE '%Complete Bundle%')",
-            (session["user_id"], note["subject_slug"])).fetchone()
-        has_access = bool(bought)
-    if not has_access:
+    if not _check_view_access(note, conn):
         conn.close()
         return redirect(url_for("buy_note", note_id=note_id))
     content = get_note_content(note)
     conn.close()
     if note["file_type"] == "html" and content:
-        return Response(
-            make_mobile_responsive(clean_note_html(content)) or "",
-            mimetype="text/html",
-        )
+        # C7: content ko sandboxed iframe wrapper ke andar serve karo (scripts block)
+        return render_template("note_view_wrapper.html", note=note)
     full = os.path.join(BASE_DIR, note["file_path"])
     if not os.path.exists(full):
         abort(404)
@@ -711,42 +882,31 @@ def note_view(note_id):
     return send_from_directory(folder, name, as_attachment=False)
 
 
-def bundle_preview_sample(content):
-    """Bundle HTML se cover + pehla chapter dikhao, SAB CSS include karke
-    (taaki chapter decorated dikhe, plain text nahi)."""
-    import re
-    # Sab <style> blocks extract karo (head + har chapter ke)
-    styles = re.findall(r'<style[^>]*>(.*?)</style>', content, re.S)
-    # clean each style: remove @import / @font-face file refs
-    cleaned_styles = []
-    for s in styles:
-        s = re.sub(r"@import[^;]+;", "", s)
-        s = re.sub(r"@font-face\s*\{[^}]*file:[^}]*\}", "", s, flags=re.S)
-        cleaned_styles.append(s)
-    all_css = "\n".join(cleaned_styles)
+@app.route("/note/<int:note_id>/view/content")
+def note_view_content(note_id):
+    """Note ka raw HTML — sirf wrapper ke SANDBOXED iframe ke liye (C7).
 
-    # Cover section (bundle-cover, bina TOC)
-    cover = ""
-    m = re.search(r'<div class="bundle-cover">(.*?)(</div>\s*</div>|<div class="bundle-toc">)', content, re.S)
-    if m:
-        cover = '<div class="bundle-cover">' + m.group(1) + '</div></div>'
-
-    # Pehla section (pehla bundle-section, agle section tak)
-    sample = ""
-    m1 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content)
-    if m1:
-        start = m1.start()
-        m2 = re.search(r'<div style="page-break-before:always;" class="bundle-section">', content[start+10:])
-        end = (start + 10 + m2.start()) if m2 else len(content)
-        sample = content[start:end]
-
-    notice = ('<div style="background:#fef3c7;border:1px solid #d97706;border-radius:10px;padding:14px 18px;'
-              'margin:14px auto;max-width:820px;text-align:center;font-family:Arial,sans-serif;'
-              'color:#7c2d12;font-size:14px;">'
-              '👁️ <b>Ye sirf PREVIEW hai</b> — ek sample chapter dikhaya ja raha hai. '
-              'Poora bundle kharidne ke liye <b>🛒 Buy</b> button dabayein.</div>')
-    return (f'<!DOCTYPE html><html lang="hi"><head><meta charset="UTF-8"><title>Preview</title>'
-            f'<style>{all_css}</style></head><body>{notice}{cover}{sample}</body></html>')
+    Security: (1) access check /view jaisa hi, (2) iframe par `sandbox` hai
+    isliye note mein koi bhi <script>/on* handler execute NAHI hota,
+    (3) is path par CSP `script-src 'none'` hai (after_request mein)."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    if not row:
+        conn.close()
+        abort(404)
+    note = dict(row)
+    if note["file_type"] != "html":
+        conn.close()
+        abort(404)
+    if not _check_view_access(note, conn):
+        conn.close()
+        return redirect(url_for("buy_note", note_id=note_id))
+    content = get_note_content(note)
+    conn.close()
+    if not content:
+        abort(404)
+    return Response(make_mobile_responsive(clean_note_html(content)) or "",
+                    mimetype="text/html")
 
 
 @app.route("/library/<int:bundle_id>")
@@ -858,7 +1018,13 @@ def _get_razorpay_client():
 
 @app.route("/pay/<int:note_id>")
 def pay_order(note_id):
-    """Razorpay order create karo (test mode)."""
+    """Razorpay order create karo.
+
+    SECURITY: order ke 'notes' field mein note_id + amount_paise store karte
+    hain. Ye Razorpay ke paas (server-side) rehta hai, isliye verify par
+    note ka pata sirf order se hi chalega — client-side form wala note_id
+    par bharosa NAHI karna (pehle se wahi bug tha: ₹49 payment karke ₹499
+    bundle ka note_id bhej ke access le liya ja sakta tha)."""
     conn = get_db()
     row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
     conn.close()
@@ -869,6 +1035,9 @@ def pay_order(note_id):
     if client is None:
         flash("Razorpay configured nahi hai (Key Secret missing).", "error")
         return redirect(url_for("buy_note", note_id=note_id))
+    if note["price"] <= 0:
+        flash("Ye note free hai — direct download/view karein.", "info")
+        return redirect(url_for("note_view", note_id=note_id))
     amount_paise = int(round(note["price"] * 100))
     try:
         order = client.order.create({
@@ -876,6 +1045,8 @@ def pay_order(note_id):
             "currency": "INR",
             "receipt": f"note_{note_id}",
             "payment_capture": 1,
+            # Server-side binding: verify par order se hi note_id nikalega
+            "notes": {"note_id": str(note_id), "amount_paise": str(amount_paise)},
         })
     except Exception as e:
         flash(f"Order create error: {e}", "error")
@@ -891,33 +1062,125 @@ def pay_order(note_id):
 
 @app.route("/pay/verify", methods=["POST"])
 def pay_verify():
-    """Razorpay payment verify karo."""
+    """Razorpay payment verify karo — secure flow:
+
+    1. Signature verify (order_id + payment_id + HMAC).
+    2. Order Razorpay se FETCH karke uske `notes` se note_id nikaalo.
+       (Client-side form mein bheja gaya note_id IGNORE hota hai.)
+    3. Order ka amount == order-time par recorded amount hona chahiye
+       (legacy orders ke liye: note ki current price).
+    4. Order status 'paid' hona chahiye.
+    5. Replay protection: same payment_id dobara process nahi hota,
+       purchase insert idempotent hai (double grant nahi hoga).
+    """
+    import json
+    import re
     params = request.form.to_dict()
     client = _get_razorpay_client()
-    note_id = request.form.get("note_id")
-    if client is not None:
+    if client is None:
+        flash("Payment verify nahi ho sakta (Razorpay configured nahi hai).", "error")
+        return redirect(url_for("index"))
+
+    order_id = params.get("razorpay_order_id", "")
+    payment_id = params.get("razorpay_payment_id", "")
+    if not order_id or not payment_id:
+        flash("Payment verify fail — details missing hain.", "error")
+        return redirect(url_for("index"))
+
+    # 1) Signature verify (SDK False return kar sakta hai ya exception — dono handle)
+    try:
+        sig_ok = client.utility.verify_payment_signature(params)
+    except Exception:
+        sig_ok = False
+    if not sig_ok:
+        flash("Payment verify fail — signature match nahi hua.", "error")
+        return redirect(url_for("index"))
+
+    # 2) Order fetch — note_id sirf Razorpay ke order se hi
+    try:
+        order = client.order.fetch(order_id)
+    except Exception:
+        flash("Order fetch fail — dobara try karein.", "error")
+        return redirect(url_for("index"))
+
+    if order.get("status") != "paid":
+        flash("Payment abhi confirmed nahi hui.", "error")
+        return redirect(url_for("index"))
+    # Extra sanity: order ka payment_id form wale se match kare
+    if order.get("payment_id") and order.get("payment_id") != payment_id:
+        flash("Payment verify fail — order/payment mismatch.", "error")
+        return redirect(url_for("index"))
+
+    notes = order.get("notes") or {}
+    if isinstance(notes, str):
         try:
-            client.utility.verify_payment_signature(params)
-            payment_id = params.get("razorpay_payment_id")
-            conn = get_db()
-            # record payment
-            conn.execute(
-                "INSERT INTO payments (note_id, payment_id, order_id, amount, status, email, created_at) VALUES (?,?,?,?,?,?,?)",
-                (note_id, payment_id, params.get("razorpay_order_id"), request.form.get("amount"), "paid", request.form.get("email", ""), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-            )
-            # purchase record — user ko bundle access milta hai
-            if session.get("user_id"):
-                conn.execute(
-                    "INSERT INTO purchases (user_id, bundle_id, email, created_at) VALUES (?,?,?,?)",
-                    (session["user_id"], note_id, session.get("user_name",""), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-                )
-            conn.commit()
+            notes = json.loads(notes)
+        except Exception:
+            notes = {}
+    try:
+        note_id = int(notes["note_id"])
+        order_paise_recorded = int(notes["amount_paise"])
+    except (KeyError, TypeError, ValueError):
+        # Legacy order (is fix se pehle bana) — receipt "note_<id>" se fallback
+        m = re.match(r"^note_(\d+)$", order.get("receipt") or "")
+        if not m:
+            flash("Order ko kisi note se match nahi kiya ja saka.", "error")
+            return redirect(url_for("index"))
+        note_id = int(m.group(1))
+        order_paise_recorded = None
+
+    conn = get_db()
+    row = conn.execute("SELECT * FROM notes WHERE id=?", (note_id,)).fetchone()
+    if not row:
+        conn.close()
+        flash("Note nahi mila.", "error")
+        return redirect(url_for("index"))
+    note = dict(row)
+
+    # 3) Amount check — jo paisa laga, wahi order mein recorded tha
+    if order_paise_recorded is not None:
+        # Naya order: order-time par site jis price par bola tha, wahi charge hua
+        # (baad mein price change ho toh bhi order-time price hi authoritative hai)
+        if int(order.get("amount", 0)) != order_paise_recorded:
+            flash("Payment amount mismatch — dobara try karein.", "error")
             conn.close()
-            flash("Payment successful! ✅ Notes aapko WhatsApp par bheja jayega.", "success")
-            return redirect(url_for("buy_success", note_id=note_id, payment_id=payment_id))
-        except Exception as e:
-            flash(f"Payment verify error: {e}", "error")
-    return redirect(url_for("buy_note", note_id=int(note_id) if note_id else 1))
+            return redirect(url_for("index"))
+    else:
+        # Legacy order: note ki current price se match karo
+        if int(order.get("amount", 0)) != int(round(note["price"] * 100)):
+            flash("Payment amount note price se match nahi karta.", "error")
+            conn.close()
+            return redirect(url_for("index"))
+
+    # User ka email (payments record ke liye)
+    email = ""
+    if session.get("user_id"):
+        u = conn.execute("SELECT email FROM users WHERE id=?", (session["user_id"],)).fetchone()
+        if u:
+            email = u["email"]
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 5) Replay protection + idempotent inserts
+    already = conn.execute("SELECT id FROM payments WHERE payment_id=?", (payment_id,)).fetchone()
+    if not already:
+        conn.execute(
+            "INSERT INTO payments (note_id, payment_id, order_id, amount, status, email, created_at) VALUES (?,?,?,?,?,?,?)",
+            (note["id"], payment_id, order_id, note["price"], "paid", email, now),
+        )
+    if session.get("user_id"):
+        p = conn.execute("SELECT id FROM purchases WHERE user_id=? AND bundle_id=?",
+                         (session["user_id"], note["id"])).fetchone()
+        if not p:
+            conn.execute(
+                "INSERT INTO purchases (user_id, bundle_id, email, created_at) VALUES (?,?,?,?)",
+                (session["user_id"], note["id"], email, now),
+            )
+    conn.commit()
+    conn.close()
+
+    flash("Payment successful! ✅ Bundle unlock ho gaya — Library se kholen.", "success")
+    return redirect(url_for("buy_success", note_id=note["id"], payment_id=payment_id))
 
 
 @app.route("/buy/success/<int:note_id>")
@@ -943,27 +1206,43 @@ def robots_txt():
     return Response(content, mimetype="text/plain")
 
 
-@app.route("/sitemap.xml")
-def sitemap_xml():
+# M12: Sitemap — pehle har hit par saari notes query + sabka lastmod = aaj ki
+# date. Ab 1-hour cache + asli lastmod (note ki created_at).
+_sitemap_cache = {"body": None, "ts": 0}
+
+
+def _build_sitemap():
     conn = get_db()
-    urls = [request.url_root.rstrip("/") + "/"]
-    for r in conn.execute("SELECT id FROM notes"):
-        urls.append(f"{request.url_root.rstrip('/')}/note/{r['id']}")
+    base = request.url_root.rstrip("/")
+    urls = [(base + "/", datetime.now().strftime("%Y-%m-%d"))]
+    for r in conn.execute("SELECT id, created_at FROM notes"):
+        urls.append((f"{base}/note/{r['id']}", (r["created_at"] or "")[:10] or datetime.now().strftime("%Y-%m-%d")))
     for r in conn.execute("SELECT slug FROM subjects"):
-        urls.append(f"{request.url_root.rstrip('/')}/subject/{r['slug']}")
+        urls.append((f"{base}/subject/{r['slug']}", datetime.now().strftime("%Y-%m-%d")))
     conn.close()
-    from datetime import datetime as dt
     xml = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for u in urls:
-        xml.append(f'<url><loc>{u}</loc><lastmod>{dt.now().strftime("%Y-%m-%d")}</lastmod><changefreq>weekly</changefreq></url>')
+    for u, lastmod in urls:
+        xml.append(f'<url><loc>{u}</loc><lastmod>{lastmod}</lastmod><changefreq>weekly</changefreq></url>')
     xml.append('</urlset>')
-    return Response("\n".join(xml), mimetype="application/xml")
+    return "\n".join(xml)
 
 
-@app.route("/manifest.json")
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    if _sitemap_cache["body"] is None or time.time() - _sitemap_cache["ts"] > 3600:
+        _sitemap_cache["body"] = _build_sitemap()
+        _sitemap_cache["ts"] = time.time()
+    return Response(_sitemap_cache["body"], mimetype="application/xml")
+
+
+@app.route(ADMIN_PREFIX + "/manifest.json")
+@login_required
 def admin_manifest():
-    """PWA manifest — admin app ko phone pe install karne ke liye."""
+    """PWA manifest — admin app ko phone pe install karne ke liye.
+
+    SECURITY: Pehle ye root par public tha aur ADMIN_PREFIX (secret token)
+    expose karta tha. Ab sirf admin prefix ke neeche + login ke saath."""
     data = {
         "name": "ANUJ Admin — UPSC Notes Store",
         "short_name": "ANUJ Admin",
@@ -985,9 +1264,13 @@ def admin_manifest():
     return Response(json.dumps(data), mimetype="application/manifest+json")
 
 
-@app.route("/service-worker.js")
+@app.route(ADMIN_PREFIX + "/service-worker.js")
+@login_required
 def admin_sw():
-    """Simple service worker — admin app offline-cache ke liye."""
+    """Simple service worker — admin app offline-cache ke liye.
+
+    SECURITY: Pehle root par public tha (token SCOPE constant mein tha).
+    Ab sirf admin prefix ke neeche + login ke saath."""
     scope = ADMIN_PREFIX + "/"
     js = (
         "const CACHE='anuj-admin-v1';\n"
@@ -1027,7 +1310,7 @@ def contact():
 # ============================================================
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    next_url = request.args.get("next") or request.form.get("next") or url_for("index")
+    next_url = safe_next(request.args.get("next") or request.form.get("next"), url_for("index"))
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         email = request.form.get("email", "").strip().lower()
@@ -1039,8 +1322,8 @@ def signup():
         if password != confirm:
             flash("Password aur confirm password match nahi karte.", "error")
             return redirect(url_for("signup", next=next_url))
-        if len(password) < 4:
-            flash("Password kam se kam 4 characters ka rakhein.", "error")
+        if len(password) < 8:
+            flash("Password kam se kam 8 characters ka rakhein.", "error")
             return redirect(url_for("signup", next=next_url))
         conn = get_db()
         exists = conn.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
@@ -1064,14 +1347,19 @@ def signup():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    next_url = request.args.get("next") or request.form.get("next") or url_for("index")
+    next_url = safe_next(request.args.get("next") or request.form.get("next"), url_for("index"))
     if request.method == "POST":
+        ip = request.remote_addr or "?"
+        if not _throttle_check(ip):
+            flash("Bahut saari galat koshishen ho gayi hain. 5 minute baad try karein.", "error")
+            return render_template("login.html", next_url=next_url)
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         conn.close()
         if user and check_password_hash(user["password_hash"], password):
+            _LOGIN_THROTTLE.pop(ip, None)
             session["user_id"] = user["id"]
             session["user_name"] = user["name"]
             flash(f"Welcome back, {user['name']}! 👋", "success")
@@ -1103,11 +1391,17 @@ def user_dashboard():
 # ============================================================
 @app.route(ADMIN_PREFIX + "/login", methods=["GET", "POST"])
 def admin_login():
-    next_url = request.args.get("next") or url_for("admin_dashboard")
+    next_url = safe_next(request.args.get("next"), url_for("admin_dashboard"))
     if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        ip = request.remote_addr or "?"
+        if not _throttle_check(ip, max_tries=5, window=600):
+            flash("Bahut saari galat koshishen ho gayi hain. 10 minute baad try karein.", "error")
+            return render_template("admin_login.html")
+        # timing-attack safe compare (plaintext equality ki jagah)
+        username_ok = secrets.compare_digest(request.form.get("username", ""), ADMIN_USERNAME)
+        password_ok = secrets.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD)
+        if username_ok and password_ok:
+            _LOGIN_THROTTLE.pop(ip, None)
             session["is_admin"] = True
             flash("Welcome back, Admin! 👋", "success")
             return redirect(next_url)
@@ -1120,6 +1414,12 @@ def admin_logout():
     session.pop("is_admin", None)
     flash("Aap logout ho gaye hain.", "info")
     return redirect(url_for("index"))
+
+
+@app.route(ADMIN_PREFIX + "/")
+def admin_dashboard_slash():
+    # Trailing-slash variant — dashboard par redirect
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route(ADMIN_PREFIX)
@@ -1230,8 +1530,12 @@ def admin_purchase():
             exists = conn.execute("SELECT id FROM purchases WHERE user_id=? AND bundle_id=?",
                                   (user["id"], bundle_id)).fetchone()
             if not exists:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 conn.execute("INSERT INTO purchases (user_id,bundle_id,email,created_at) VALUES (?,?,?,?)",
-                             (user["id"], bundle_id, email, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                             (user["id"], bundle_id, email, now))
+                # M8: audit trail — kaunsa access kab manually diya
+                conn.execute("INSERT INTO admin_actions (action, detail, created_at) VALUES (?,?,?)",
+                             ("purchase_grant", f"bundle_id={bundle_id} user_id={user['id']} email={email}", now))
                 conn.commit()
                 flash(f"Purchase add ho gaya — {user['name']} ko bundle {bundle_id} ka access!", "success")
             else:
@@ -1273,7 +1577,9 @@ def admin_toggle(note_id):
         conn.execute("UPDATE notes SET featured=? WHERE id=?", (new_val, note_id))
         conn.commit()
     conn.close()
-    return redirect(request.referrer or url_for("admin_dashboard"))
+    # NOTE: request.referrer par redirect nahi karte (referrer-controlled
+    # redirect) — hamesha dashboard par wapas.
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route(ADMIN_PREFIX + "/subjects", methods=["GET", "POST"])
@@ -1296,11 +1602,13 @@ def admin_subjects():
                     flash(f"Subject '{name}' add ho gaya.", "success")
                 except sqlite3.IntegrityError:
                     flash("Ye slug pehle se exist karta hai.", "error")
+                invalidate_subjects_cache()
         elif action == "delete":
             sid = request.form.get("id")
             conn.execute("DELETE FROM subjects WHERE id=?", (sid,))
             conn.commit()
             flash("Subject delete ho gaya.", "info")
+            invalidate_subjects_cache()
         conn.close()
         return redirect(url_for("admin_subjects"))
     return render_template("admin_subjects.html", subjects=get_subjects())
@@ -1336,4 +1644,6 @@ if __name__ == "__main__":
     print(f"  Storefront: http://127.0.0.1:5000")
     print(f"  Admin (secret): http://127.0.0.1:5000{ADMIN_PREFIX}/login")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    # NOTE: debug=False — debug=True production par Werkzeug debugger (RCE)
+    # expose kar deta hai. Local development server hi hai ye.
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
